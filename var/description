@@ -1,0 +1,3 @@
+The Library class encapsulates the essential nature 
+of a Ruby library --a location on disk from which
+scripts can be required.
