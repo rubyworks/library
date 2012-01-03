@@ -20,8 +20,15 @@ requirements:
   groups:
   - build
   development: true
-- name: qed
-  version: 2.2.2+
+- name: rubytest
+  groups:
+  - test
+  development: true
+- name: lemon
+  groups:
+  - test
+  development: true
+- name: ae
   groups:
   - test
   development: true
@@ -42,7 +49,7 @@ revision: 0
 created: '2006-12-10'
 summary: Objectifying the Ruby Library
 title: Library
-version: 1.0.0
+version: 0.1.0
 name: library
 description: ! "The Library class encapsulates the essential nature \nof a Ruby library
   --a location on disk from which\nscripts can be required."

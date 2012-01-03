@@ -1,0 +1,14 @@
+#!mast .ruby .yardopts bin demo lib man spec test [A-Z]*.*
+.ruby
+.yardopts
+lib/library/core_ext/file.rb
+lib/library/metadata.rb
+lib/library/requirements.rb
+lib/library/script.rb
+lib/library/version.rb
+lib/library.rb
+test/helper.rb
+test/version_case.rb
+HISTORY.rdoc
+README.rdoc
+COPYING.rdoc
