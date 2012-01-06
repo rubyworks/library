@@ -2,22 +2,21 @@ class Library
 
   # The Script class represents a single file in a library.
   #
-  # TODO: Err... what is extension for?
   class Script
 
     # Create a new Script instance.
     #
     # @param library [Library]
-    #   the Library object to which the file belongs
+    #   The Library object to which the file belongs.
     #
     # @param loadpath [String]
-    #   the loadpath within the library in which the script resides
+    #   The loadpath within the library in which the script resides.
     #
     # @param filename [String]
-    #   the file path of the script relative to the loadpath
+    #   The file path of the script relative to the loadpath.
     #
     # @param extension [Boolean]
-    #   is this an extension?
+    #   File extension.
     #
     def initialize(library, loadpath, filename, extension=nil)
       @library   = library
@@ -35,7 +34,7 @@ class Library
     # The file path of the script relative to the loadpath.
     attr_reader :filename
 
-    # Is this an extension?
+    #
     attr_reader :extension
 
     # Name of the library to which the script belongs.
@@ -71,6 +70,7 @@ class Library
       @localname ||= ::File.join(filename + (extension || ''))
     end
 
+
     # Acquire the script --Roll's advanced require/load method.
     #
     #
@@ -94,7 +94,7 @@ class Library
       Library.load_stack << self #library
       begin
         library_activate unless options[:force]
-        success = require_without_rolls(fullname)
+        success = __require__(fullname)
       #rescue ::LoadError => load_error  # TODO: deativeate this if $DEBUG ?
       #  raise LoadError.new(localname, library_name)
       ensure
@@ -114,7 +114,7 @@ class Library
       Library.load_stack << self #library
       begin
         library_activate unless options[:force]
-        success = load_without_rolls(fullname)
+        success = __load__(fullname)
       #rescue ::LoadError => load_error
       #  raise LoadError.new(localname, library_name)
       ensure
@@ -122,6 +122,7 @@ class Library
       end
       success
     end
+
 
     # Compare this scripts full path name to another using `#==`.
     #

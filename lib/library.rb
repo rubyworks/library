@@ -1,22 +1,25 @@
+require 'library/core_ext'
+require 'library/ledger'
+require 'library/load_error'
+require 'library/metadata'
+require 'library/script'
+require 'library/version'
+require 'library/domain'
+
 # Library class encapsulates a location on disc that contains a Ruby
 # project, with loadable scripts, of course.
 #
 class Library
-  require 'library/core_ext/file'
-  require 'library/metadata'
-  require 'library/script'
-  require 'library/requirements'
-  require 'library/version'
 
   # Library ledger.
-  $LEDGER = {}
+  $LEDGER = Ledger.new
 
-  # When loading files, the current library oding the loading is pushed
-  # on this stack, and then poppe-off when it is finished.
+  # When loading files, the current library doing the loading is pushed
+  # on this stack, and then popped-off when it is finished.
   $LOAD_STACK = []
 
   #
-  $LOAD_CACHE = []
+  $LOAD_CACHE = {}
 
   # Dynamic link extension.
   #DLEXT = '.' + ::RbConfig::CONFIG['DLEXT']
@@ -43,7 +46,7 @@ class Library
     @location = location
     @active   = false
 
-    #data = data.rekey
+    #data = (data.rekey)
 
     #if data.empty?
     #  load_metadata
@@ -55,13 +58,13 @@ class Library
     #  @omit     = data[:omit]
     #end
 
-    load_metadata
+    @metadata = Metadata.new(@location) #, :name=>name)
 
     raise "Non-conforming library (missing name) -- `#{location}'" unless name
     raise "Non-conforming library (missing version) -- `#{location}'" unless version
 
     ## if not free and another version is not already active add to ledger
-    if $LEDGER && !free
+    if not free
       entry = $LEDGER[name]
       if Array === entry
         entry << self unless entry.include?(self)
@@ -80,28 +83,15 @@ class Library
     if Library === vers
       raise VersionConflict.new(self, vers) if vers != self
     else
-#      if Roll::LEGACY
-#        lib = vers.first
-#        if lib != self
-#          lib.absolute_loadpath.each do |path|
-#            $LOAD_PATH.delete(path)
-#          end
-#          absolute_loadpath.each do |path|
-#            $LOAD_PATH.unshift(path)
-#          end
-#        end
-#        $LEDGER[name] = self
-#      else
-      # NOTE: we are only doing this for the sake of autoload
-      # which does not honor a customized require method.
-      if Roll.hack_for_autoload?
-        absolute_loadpath.each do |path|
-          $LOAD_PATH.unshift(path)
-        end
-      end
+      ## NOTE: we are only doing this for the sake of autoload
+      ## which does not honor a customized require method.
+      #if Library.autoload_hack?
+      #  absolute_loadpath.each do |path|
+      #    $LOAD_PATH.unshift(path)
+      #  end
+      #end
       $LEDGER[name] = self
     end
-#    end
     # TODO: activate runtime dependencies
     #verify
     @active = true
@@ -132,19 +122,45 @@ class Library
   #       be much simplified. Or DotRuby::Spec could be used and gemspec
   #       imported if dotruby-rubygems installed.
 
-  # Access to library metadata.
+  # Access to library metadata. Metadata is gathered from
+  # the `.ruby` file or a `.gemspec` file.
   #
   # @return [Metadata] metadata object
-  #
-  # @see Metadata
   def metadata
-    @metadata ||= Metadata.new(@location) #, :name=>name)
+    @metadata
   end
 
+  # Library's "unixname".
   #
-  #def profile
-  #  metadata.profile
-  #end
+  # @return [String] name of library
+  def name
+    @name ||= metadata.name
+  end
+
+  # Library's version number.
+  #
+  # @return [VersionNumber] version number
+  def version
+    @version ||= metadata.version
+  end
+
+  # Library's internal load path(s). This will default to `['lib']`
+  # if not otherwise given.
+  #
+  # @return [Array] list of load paths
+  def loadpath
+    metadata.load_path
+  end
+
+  # Release date.
+  #
+  # @return [Time] library's release date
+  def date
+    metadata.date
+  end
+
+  # Alias for +#date+.
+  alias_method :released, :date
 
   # Library's requirements.
   #
@@ -153,58 +169,17 @@ class Library
     metadata.requirements
   end
 
-  # Load library metadata. This is gathered from
-  # the `.ruby` file or a `.gemspec`.
+  # Runtime requirements. Note that in gemspec terms these are called 
+  # dependencies.
   #
-  # @see Metadata
-  def load_metadata
-    @name     = metadata.name
-    @version  = metadata.version
-    @loadpath = metadata.loadpath
-    @date     = metadata.date
-    @requires = metadata.requires
+  # @return [Array] list of runtime requirements
+  def runtime_requirements
+    requirements.select{ |req| req.runtime? }
   end
 
-  # Library's "unixname".
+  # Omit library form ledger?
   #
-  # @return [String] name of library
-  def name
-    @name
-  end
-
-  # Library's version number.
-  #
-  # @return [VersionNumber] version number
-  def version
-    @version
-  end
-
-  # Library's internal load path(s). This will default to `['lib']`
-  # if not otherwise given.
-  #
-  # @return [Array] list of load paths
-  def loadpath
-    @loadpath
-  end
-
-  # Release date.
-  #
-  # @return [Time] library's release date
-  def date
-    @date
-  end
-
-  # Alias for +#date+.
-  alias_method :released, :date
-
-  # Runtime dependencies.
-  def requires
-    @requires
-  end
-
-  # Omit library form any ledger?
-  #
-  # @return [Boolean] omit library from ledgers?
+  # @return [Boolean] if ture, omit library from ledger
   def omit
     @omit
   end
@@ -219,15 +194,17 @@ class Library
     loadpath.map{ |lp| ::File.join(location, lp) }
   end
 
-  # Take runtime dependencies and open them. This will help reveal any
+# FIXME: dealing with requirements
+
+  # Take runtime requirements and open them. This will help reveal any
   # version conflicts or missing dependencies.
   def verify
-    requires.each do |(name, constraint)|
+    requirements.each do |(name, constraint)|
       Library.open(name, constraint)
     end
   end
 
-  # Take all dependencies and open it. This will help reveal any
+  # Take all requirements and open it. This will help reveal any
   # version conflicts or missing dependencies.
   def verify_all
     requirements.each do |(name, constraint)|
@@ -334,7 +311,7 @@ class Library
 #    fails, libs = results.partition{ |r| Array === r }
 #  end
 
-  # Inspection.
+  # Inspect library instance.
   def inspect
     if version
       %[#<Library #{name}/#{version} @location="#{location}">]
@@ -402,412 +379,54 @@ class Library
   #  to_h.inspect
   #end
 
-  # Convert to hash
+  #
+  # Convert to hash.
+  #
+  # @return [Hash] The library metadata in a hash.
+  #
   def to_h
     {
-      :name     => name,
-      :version  => version.to_s,
-      :loadpath => loadpath,
-      :date     => date,
-      :requires => requires
+      :location     => location,
+      :name         => name,
+      :version      => version.to_s,
+      :loadpath     => loadpath,
+      :date         => date,
+      :requirements => requirements
     }
   end
 
-
-  # C L A S S  M E T H O D S
-
-# temporary
-$MONITOR = ENV['roll_monitor']
-
-  # Find matching libary files. This is the "mac daddy" method used by
-  # the #require and #load methods to find the specified +path+ among
-  # the various libraries and their loadpaths.
-  def self.find(path, options={})
-    path   = path.to_s
-
-    #suffix = options[:suffix]
-    search = options[:search]
-    local  = options[:local]
-
-$stderr.print path if $MONITOR
-
-    # Ruby appears to have a special exception for enumerator!!!
-    #return nil if path == 'enumerator' 
-
-    # absolute, home or current path
-    case path[0,1]
-    when '/', '~', '.'
-$stderr.puts "  (absolute)" if $MONITOR
-      return nil
+  module ::Kernel
+    class << self
+      alias __require__ require
+      alias __load__    load
     end
 
-=begin
-    if path.index(':') # a specified library
-      name, fname = path.split(':')
-      lib  = library(name)
-      file = lib.include?(fname, options)
-      raise LoadError, "no such file to load -- #{path}" unless file
-$stderr.puts "  (direct)" if $MONITOR
-      return file
-    end
-=end
+    alias __require__ require
+    alias __load__    load
 
-    if local
-      # try the load stack (TODO: just last or all?)
-      if script = $LOAD_STACK.last
-      #$LOAD_STACK.reverse_each do |script|
-        lib = script.library
-        #if file = lib.include?(fname, options)
-        if file = lib.include?(path, options)
-          unless $LOAD_STACK.include?(file)
-  $stderr.puts "  (2 stack)" if $MONITOR
-            return file
-          end
-        end
-      end
+    # In which library is the current file participating?
+    #
+    # @return [Library] currently loading Library instance
+    def __LIBRARY__
+      $LOAD_STACK.last
     end
 
-    name, fname = ::File.split_root(path)
-
-    # if the head of the path is the library
-    if fname
-      lib = Library[name]
-      if lib && file = lib.include?(path, options) || lib.include?(fname, options)
-$stderr.puts "  (3 indirect)" if $MONITOR
-        return file
-      end
+    # Activate a library.
+    # Same as #library_instance but will raise and error if the library is
+    # not found. This can also take a block to yield on the library.
+    #
+    # @param name [String]
+    #   the library's name
+    #
+    # @param constraint [String]
+    #   a valid version constraint
+    #
+    # @return [Library] the Library instance
+    def library(name, constraint=nil, &block) #:yield:
+      Library.activate(name, constraint, &block)
     end
 
-    # plain library name?
-    if !fname && lib = Library.instance(path)
-      if file = lib.default # default file to load
-$stderr.puts "  (5 plain library name)" if $MONITOR
-        return file
-      end
-    end
-
-    # fallback to brute force search, if desired
-    #if search #or legacy
-      #options[:legacy] = true
-      if file = search(path, options)
-$stderr.puts "  (6 brute search)" if $MONITOR
-        return file
-      end
-    #end
-
-$stderr.puts "  (7 fallback)" if $MONITOR
-    nil
-  end
-
-  # Brute force search looks through all libraries for a matching file.
-  #
-  # path    - file path for which to search
-  # options: 
-  #   :select -
-  #   :suffix -
-  #   :legacy -
-  #
-  # Returns either
-  def self.search(path, options={})
-    matches = []
-
-    options = options.merge(:main=>true)
-
-    select  = options[:select]
-#    suffix  = options[:suffix] || options[:suffix].nil?
-#    #suffix = false if options[:load]
-#    suffix = false if Library::SUFFIXES.include?(::File.extname(path))
-
-    # TODO: Perhaps the selected and unselected should be kept in separate lists?
-    unselected, selected = *$LEDGER.partition{ |name, libs| Array === libs }
-
-    ## broad search of pre-selected libraries
-    selected.each do |(name, lib)|
-      if file = lib.find(path, options)
-        next if Library.load_stack.last == file
-        return file unless select
-        matches << file
-      end
-    end
-
-    ## finally try a broad search on unselected libraries
-    unselected.each do |(name, libs)|
-      pos = []
-      libs.each do |lib|
-        if file = lib.find(path, options)
-          pos << file
-        end
-      end
-      unless pos.empty?
-        latest = pos.sort{ |a,b| b.library.version <=> a.library.version }.first
-        return latest unless select
-        matches << latest
-      end
-    end
-
-=begin
-    # TODO: Should we be doing this at all?
-
-    ## last ditch attempt, search all $LOAD_PATH
-    if suffix
-      SUFFIXES.each do |ext|
-        $LOAD_PATH.each do |location|
-          file = ::File.join(location, path + ext)
-          if ::File.file?(file)
-            return Library::Script.new(location, '.', path, ext)
-            matches << file 
-          end
-        end
-      end
-    else
-      $LOAD_PATH.each do |location|
-        file = ::File.join(location, file)
-        if ::File.file?(file)
-          return Library::Script.new(location, '.', path, ext) unless select
-          matches << file
-        end
-      end
-    end
-=end
-
-    select ? matches.uniq : matches.first
-  end
-
-  # Search Roll system for current or latest library files. This is useful
-  # for plugin loading.
-  #
-  # This only searches activated libraries or the most recent version
-  # of any given library.
-  #
-  def self.search_latest(match) #, options={})
-    matches = []
-    ledger.each do |name, lib|
-      lib = lib.sort.first if Array===lib
-      lib.loadpath.each do |path|
-        find = File.join(lib.location, path, match)
-        list = Dir.glob(find)
-        list = list.map{ |d| d.chomp('/') }
-        matches.concat(list)
-      end
-    end
-    matches
-  end
-
-  # @deprecated
-  def self.find_files(match)
-    search_latest(match)
-  end
-
-  # Current ledger.
-  def self.ledger
-    $LEDGER
-  end
-
-  # Access to global load stack.
-  def self.load_stack
-    $LOAD_STACK
-  end
-
-  #
-  def self.names
-    $LEDGER.keys
-  end
-
-  #
-  def self.list
-    $LEDGER.keys
-  end
-
-  # A shortcut for #instance.
-  #
-  # @return [Library] an instance of Library
-  def self.[](name, constraint=nil)
-    instance(name, constraint)
-  end
-
-  # Get an instance of a library by name, or name and version.
-  # Libraries are singleton, so once loaded the same object is
-  # always returned.
-  def self.instance(name, constraint=nil)
-    name = name.to_s
-    #raise "no library -- #{name}" unless include?(name)
-    return nil unless $LEDGER.include?(name)
-
-    library = $LEDGER[name]
-
-    if Library===library
-      if constraint # FIXME: it's okay if constraint fits current
-        raise Library::VersionConflict, library
-      else
-        library
-      end
-    else # library is an array of versions
-      if constraint
-        compare = Library::Version.constraint_lambda(constraint)
-        library = library.select{ |lib| compare[lib.version] }.max
-      else
-        library = library.max
-      end
-      unless library
-        raise VersionError, "no library version -- #{name} #{constraint}"
-      end
-      #index[name] = library #constrain(library)
-      library.activate
-      return library
-    end
-  end
-
-  # Activate a library. Same as #instance but will raise and error if the
-  # library is not found. This can also take a block to yield on the library.
-  #
-  # @param [String]
-  #   name of library
-  #
-  # @param [String]
-  #   valid version constraint
-  #
-  # @return [Library]
-  #   the activated Library object
-  #
-  # TODO: Should we also check $"? Eg. `return false if $".include?(path)`.
-  def self.activate(name, constraint=nil) #:yield:
-    library = instance(name, constraint)
-    unless library
-      raise LoadError, "no library -- #{name}"
-    end
-    library.activate
-    yield(library) if block_given?
-    library
-  end
-
-  # Acquire a script within the library.
-  #
-  # @param path [String]
-  #   file name of script relative to library's loadpath
-  #
-  # @param options [Hash]
-  #
-  # @return [true, false] if script was newly required or successfully loaded
-  def self.require(path, options)
-    if file = $LOAD_CACHE[path]
-      if options[:load]
-        return file.load
-      else
-        return false
-      end
-    end
-
-    if file = Library.find(path, options)
-      #file.library_activate
-      $LOAD_CACHE[path] = file
-      return file.acquire(options)
-    end
-
-    if options[:load]
-      load_without_rolls(path, options[:wrap])
-    else
-      require_without_rolls(path)
-    end
-  end
-
-  # Load file path. This is just like #require except that previously
-  # loaded files will be reloaded and standard extensions will not be
-  # automatically appended.
-  #
-  # @param path [String]
-  #   file name of script relative to library's loadpath
-  #
-  # @return [true, false] if script was successfully loaded
-  def self.load(path, options={}) #, &block)
-    #options.merge!(block.call) if block
-
-    options[:wrap]   = true if options and !(Hash===options)
-    options[:load]   = true
-    options[:suffix] = false
-    options[:local]  = false
-
-    require(path, options)
-
-    #if file = $LOAD_CACHE[path]
-    #  return file.load
-    #end
-
-    #if file = Library.find(path, options)
-    #  #file.library_activate
-    #  $LOAD_CACHE[path] = file
-    #  return file.load(options) #acquire(options)
-    #end
-
-    ##if options[:load]
-    #  load_without_rolls(path, options[:wrap])
-    ##else
-    ##  require_without_rolls(path)
-    ##end
-  end
-
-  # Roll-style loading. First it looks for a specific library via `:`.
-  # If `:` is not present it then tries the current loading library.
-  # Failing that it fallsback to Ruby itself.
-  #
-  #   require('facets:string/margin')
-  #
-  # To "load" the library, rather than "require" it, set the +:load+
-  # option to true.
-  #
-  #   require('facets:string/margin', :load=>true)
-  #
-  # @param path [String]
-  #   file name of script relative to library's loadpath
-  #
-  # @return [true, false] if script was newly required
-  def self.acquire(path, options={}) #, &block)
-    #options.merge!(block.call) if block
-    options[:local] = true
-    require(path, options)
-  end
-
-#  # Return Array of environment names.
-#  def self.environments
-#    Environment.list
-#  end
-#
-#  #
-#  def self.environment(name=nil)
-#    Environment[name]
-#  end
-
-  #
-  #def self.autoload(constant, file)
-  #  ledger.autoload(constant, file)
-  #end
-
-  #
-  def self.monitor(on=nil)
-    @monitor = on unless on.nil?
-    @monitor
-  end
-
-  class LoadError < ::LoadError
-    def initialize(failed_path, library_name=nil)
-      super()
-      @failed_path  = failed_path
-      @library_name = library_name
-      clean_backtrace
-    end
-
-    def to_s
-      "no such file to load -- #{@library_name}:#{@failed_path}"
-    end
-
-    # Take an +error+ and remove any mention of 'roll' from it's backtrace.
-    # Will leave the backtrace untouched if $DEBUG is set to true.
-    def clean_backtrace
-      return if ENV['roll_debug'] || $DEBUG
-      bt = backtrace
-      bt = bt.reject{ |e| /roll/ =~ e } if bt
-      set_backtrace(bt)
-    end
+    module_function :library
   end
 
 end
-

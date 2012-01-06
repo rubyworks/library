@@ -1,0 +1,38 @@
+class Library
+
+  # Library LoadError is a subclass of Ruby's standard LoadError class.
+  #
+  class LoadError < ::LoadError
+
+    #
+    # Setup new LoadError instance.
+    #
+    def initialize(failed_path, library_name=nil)
+      super()
+      @failed_path  = failed_path
+      @library_name = library_name
+      clean_backtrace
+    end
+
+    #
+    # Error message string.
+    #
+    def to_s
+      "no such file to load -- #{@library_name}:#{@failed_path}"
+    end
+
+    #
+    # Take an +error+ and remove any mention of 'library' from it's backtrace.
+    # Will leave the backtrace untouched if $DEBUG is set to true.
+    #
+    # @todo Make clean_backtrace this more robust.
+    #
+    def clean_backtrace
+      return if ENV['debug'] || $DEBUG
+      bt = backtrace
+      bt = bt.reject{ |e| /library/ =~ e } if bt
+      set_backtrace(bt)
+    end
+  end
+
+end
