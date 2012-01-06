@@ -7,7 +7,9 @@ class Library
     include Comparable
     include Enumerable
 
+    #
     # Convenience alias for ::new.
+    #
     def self.[](*args)
       new(*args)
     end
@@ -31,12 +33,14 @@ class Library
       end
     end
 
+    #
     # Converts a constraint into an operator and value.
     #
     # @param [String]
     #   valid version constraint , e.g. "= 2.1.3"
     #
     # @return [Array<String>] operator and version number pair
+    #
     def self.parse_constraint(constraint)
       constraint = constraint.strip
       re = %r{^(=~|~>|<=|>=|==|=|<|>)?\s*(\d+(:?\.\S+)*)$}
@@ -55,11 +59,13 @@ class Library
       return op, val
     end
 
+    #
     # Parse common Hash-based version, i.e. Jeweler format.
     #
     # @param [Hash] version hash
     #
     # @return [Library::Version] instance of Version
+    #
     def self.parse_hash(data)
       data = data.inject({}){ |h,(k,v)| h[k.to_sym] = v; h }
       if data[:major]
@@ -70,47 +76,59 @@ class Library
       new vers
     end
 
+    #
     # Parse YAML-based version.
     # TODO: deprecate ?
+    #
     def parse_yaml(yaml)
       require 'yaml'
       parse_hash( YAML.load(yaml) )
     end
 
+    #
     # Instantiate new instance of Version.
+    #
     def initialize(*args)
       args   = args.flatten.compact
       args   = args.join('.').split(/\W+/)
       @tuple = args.map{ |i| /^\d+$/ =~ i.to_s ? i.to_i : i }
     end
 
+    #
     # Returns string representation of version, e.g. "1.0.0".
     #
     # @return [String] version number in dot format
+    #
     def to_s
       @tuple.compact.join('.')
     end
 
+    #
     # Library::Version is not technically a String-type. This is here
     # only becuase `File.join` calls it instead of #to_s.
     #
     # @return [String] version number in dot format
+    #
     def to_str
       @tuple.compact.join('.')
     end
 
+    #
     #def inspect; to_s; end
 
+    #
     # Access indexed segment of version number.
     # Returns `0` if index is non-existant.
     #
     # @param index [Integer] a segment index of the version
     #
     # @return [Integer, String] version segment
+    #
     def [](index)
       @tuple.fetch(index,0)
     end
 
+    #
     # "Spaceship" comparsion operator.
     #
     # @param other [Library::Version, Array] 
@@ -118,6 +136,7 @@ class Library
     #
     # @return [Integer] 
     #   `-1`, `0`, or `1` for less, equal or greater, respectively
+    #
     def <=>(other)
       [size, other.size].max.times do |i|
         c = self[i] <=> (other[i] || 0)
@@ -126,12 +145,14 @@ class Library
       0
     end
 
+    #
     # Pessimistic constraint (like '~>' in gems).
     #
     # @param other [Library::Version]
     #   another instance of version
     #
     # @return [Boolean] match pessimistic constraint?
+    #
     def =~(other)
       #other = other.to_t
       upver = other.tuple.dup
@@ -141,31 +162,43 @@ class Library
       self >= other && self < upver
     end
 
+    #
     # Major is the first number in the version series.
+    #
     def major ; @tuple[0] ; end
 
+    #
     # Minor is the second number in the version series.
+    #
     def minor ; @tuple[1] || 0 ; end
 
+    #
     # Patch is third number in the version series.
+    #
     def patch ; @tuple[2] || 0 ; end
 
+    #
     # Build returns the remaining portions of the version
     # tuple after +patch+ joined by '.'.
     #
     # @return [String] version segments after the 3rd in point-format
+    #
     def build
       @tuple[3..-1].join('.')
     end
 
+    #
     # Iterate over each version segment.
+    #
     def each(&block)
       @tuple.each(&block)
     end
 
+    #
     # Size of version tuple.
     #
     # @return [Integer] number of segments
+    #
     def size
       @tuple.size
     end
@@ -177,9 +210,11 @@ class Library
 
     protected
 
+    #
     # The internal tuple modeling the version number.
     #
     # @return [Array] internal tuple representing the version
+    #
     def tuple
       @tuple
     end

@@ -11,26 +11,39 @@ require 'library/domain'
 #
 class Library
 
+  #
   # Library ledger.
+  #
   $LEDGER = Ledger.new
 
+  #
   # When loading files, the current library doing the loading is pushed
   # on this stack, and then popped-off when it is finished.
+  #
   $LOAD_STACK = []
 
+  #
+  #
   #
   $LOAD_CACHE = {}
 
   # Dynamic link extension.
   #DLEXT = '.' + ::RbConfig::CONFIG['DLEXT']
 
-  # TODO: Some extensions are platform specific --only
-  # add the ones needed for the current platform.
+  # TODO: Some extensions are platform specific --only add the ones needed
+  # for the current platform to SUFFIXES.
+
+  #
+  #
+  #
   SUFFIXES = ['.rb', '.rbw', '.so', '.bundle', '.dll', '.sl', '.jar'] #, '']
 
+  #
   # Extensions glob, joins extensions with comma and wrap in curly brackets.
+  #
   SUFFIX_PATTERN = "{#{SUFFIXES.join(',')}}"
 
+  #
   # New Library object.
   #
   # If data is given it must have `:name` and `:version`. It can
@@ -72,11 +85,13 @@ class Library
     end
   end
 
+  #
   # Activate a library by putting it's loadpaths on the master $LOAD_PATH.
   # This is neccessary only for the fact that autoload will not utilize
   # customized require methods.
   #
-  # @return [true] that the library has been activated
+  # @return [true,false] Has the library has been activated?
+  #
   def activate
     return if @active
     vers = $LEDGER[name]
@@ -113,7 +128,9 @@ class Library
   end
 =end
 
+  #
   # Location of library files on disc.
+  #
   def location
     @location
   end
@@ -122,79 +139,101 @@ class Library
   #       be much simplified. Or DotRuby::Spec could be used and gemspec
   #       imported if dotruby-rubygems installed.
 
+  #
   # Access to library metadata. Metadata is gathered from
   # the `.ruby` file or a `.gemspec` file.
   #
   # @return [Metadata] metadata object
+  #
   def metadata
     @metadata
   end
 
+  #
   # Library's "unixname".
   #
   # @return [String] name of library
+  #
   def name
     @name ||= metadata.name
   end
 
+  #
   # Library's version number.
   #
   # @return [VersionNumber] version number
+  #
   def version
     @version ||= metadata.version
   end
 
+  #
   # Library's internal load path(s). This will default to `['lib']`
   # if not otherwise given.
   #
   # @return [Array] list of load paths
+  #
   def loadpath
     metadata.load_path
   end
 
+  #
   # Release date.
   #
   # @return [Time] library's release date
+  #
   def date
     metadata.date
   end
 
+  #
   # Alias for +#date+.
+  #
   alias_method :released, :date
 
+  #
   # Library's requirements.
   #
   # @return [Array] list of requirements
+  #
   def requirements
     metadata.requirements
   end
 
+  #
   # Runtime requirements. Note that in gemspec terms these are called 
   # dependencies.
   #
   # @return [Array] list of runtime requirements
+  #
   def runtime_requirements
     requirements.select{ |req| req.runtime? }
   end
 
+  #
   # Omit library form ledger?
   #
   # @return [Boolean] if ture, omit library from ledger
+  #
   def omit
     @omit
   end
 
+  #
   # Same as `#omit`.
+  #
   alias_method :omit?, :omit
 
+  #
   # Returns a list of load paths expand to full path names.
   #
   # @return [Array<String>] list of expanded load paths
+  #
   def absolute_loadpath
     loadpath.map{ |lp| ::File.join(location, lp) }
   end
 
-# FIXME: dealing with requirements
+# FIXME: dealing library requirements
 
   # Take runtime requirements and open them. This will help reveal any
   # version conflicts or missing dependencies.
@@ -212,55 +251,72 @@ class Library
     end
   end
 
+  #
   # Does a library contain a relative +file+ within it's loadpath.
   # If so return the libary file object for it, otherwise +false+.
   #
-  # file    - file path to find [to_s]
-  # options - Hash of optional settings to adjust search behavior
-  # options[:suffix] - automatically try standard extensions if file has none.
-  # options[:legacy] - do not match within +name+ directory, eg. `lib/foo/*`.
+  # Note that this method was designed to maximize speed.
   #
-  # NOTE: This method was designed to maximize speed.
-  def find(file, options={})
+  # @param [#to_s] file
+  #   The relative pathname of the file to find.
+  #
+  # @param [Hash] options
+  #   The Hash of optional settings to adjust search behavior.
+  #
+  # @option options [Boolean] :suffix
+  #   Automatically try standard extensions if pathname has none.
+  #
+  # @option options [Boolean] :legacy
+  #   Do not match within library's +name+ directory, eg. `lib/foo/*`.
+  #
+  # @return [Feature,nil] The feature if found.
+  #
+  def find(pathname, options={})
     main   = options[:main]
     #legacy = options[:legacy]
     suffix = options[:suffix] || options[:suffix].nil?
     #suffix = false if options[:load]
-    suffix = false if SUFFIXES.include?(::File.extname(file))
+    suffix = false if SUFFIXES.include?(::File.extname(pathname))
     if suffix
       loadpath.each do |lpath|
         SUFFIXES.each do |ext|
-          f = ::File.join(location, lpath, file + ext)
-          return feature(lpath, file, ext) if ::File.file?(f)
+          f = ::File.join(location, lpath, pathname + ext)
+          return feature(lpath, pathname, ext) if ::File.file?(f)
         end
       end #unless legacy
       legacy_loadpath.each do |lpath|
         SUFFIXES.each do |ext|
-          f = ::File.join(location, lpath, file + ext)
-          return feature(lpath, file, ext) if ::File.file?(f)
+          f = ::File.join(location, lpath, pathname + ext)
+          return feature(lpath, pathname, ext) if ::File.file?(f)
         end
       end unless main
     else
       loadpath.each do |lpath|
-        f = ::File.join(location, lpath, file)
-        return feature(lpath, file) if ::File.file?(f)
+        f = ::File.join(location, lpath, pathname)
+        return feature(lpath, pathname) if ::File.file?(f)
       end #unless legacy
       legacy_loadpath.each do |lpath|
-        f = ::File.join(location, lpath, file)        
-        return feature(lpath, file) if ::File.file?(f)
+        f = ::File.join(location, lpath, pathname)        
+        return feature(lpath, pathname) if ::File.file?(f)
       end unless main
     end
     nil
   end
 
+  #
   # Alias for #find.
+  #
   alias_method :include?, :find
 
+  #
+  #
   #
   def legacy?
     !legacy_loadpath.empty?
   end
 
+  #
+  #
   #
   def legacy_loadpath
     @legacy_loadpath ||= (
@@ -274,9 +330,11 @@ class Library
     )
   end
 
-  # Create a new Script object from +lpath+, +file+ and +ext+.
-  def feature(lpath, file, ext=nil)
-    Script.new(self, lpath, file, ext)
+  #
+  # Create a new Feature object from +lpath+, +pathname+ and +ext+.
+  #
+  def feature(lpath, pathname, ext=nil)
+    Feature.new(self, lpath, pathname, ext)
   end
 
   #
@@ -316,7 +374,9 @@ class Library
 #    fails, libs = results.partition{ |r| Array === r }
 #  end
 
+  #
   # Inspect library instance.
+  #
   def inspect
     if version
       %[#<Library #{name}/#{version} @location="#{location}">]
@@ -325,20 +385,26 @@ class Library
     end
   end
 
+  #
   # Same as #inspect.
+  #
   def to_s
     inspect
   end
 
+  #
   # Compare by version.
+  #
   def <=>(other)
     version <=> other.version
   end
 
-  # Return default file. This is the file that has same name as the
-  # library itself.
+  #
+  # Return default feature. This is the feature that has same name as
+  # the library itself.
+  #
   def default
-    @default ||= include?(name, :main=>true)
+    @default ||= find(name, :main=>true)
   end
 
   #--
@@ -358,26 +424,46 @@ class Library
   #    end
   #++
 
+  #
   # Location of executable. This is alwasy bin/. This is a fixed
   # convention, unlike lib/ which needs to be more flexable.
-  def bindir  ; ::File.join(location, 'bin') ; end
+  #
+  def bindir
+    ::File.join(location, 'bin')
+  end
 
-  # Is there a <tt>bin/</tt> location?
-  def bindir? ; ::File.exist?(bindir) ; end
+  #
+  # Is there a `bin/` location?
+  #
+  def bindir? 
+    ::File.exist?(bindir)
+  end
 
+  #
   # Location of library system configuration files.
-  # This is alwasy the <tt>etc/</tt> directory.
-  def confdir ; ::File.join(location, 'etc') ; end
+  # This is alwasy the `etc/` directory.
+  #
+  def confdir
+    ::File.join(location, 'etc')
+  end
 
-  # Is there a <tt>etc/</tt> location?
-  def confdir? ; ::File.exist?(confdir) ; end
+  #
+  # Is there a `etc/` location?
+  #
+  def confdir?
+    ::File.exist?(confdir)
+  end
 
   # Location of library shared data directory.
-  # This is always the <tt>data/</tt> directory.
-  def datadir ; ::File.join(location, 'data') ; end
+  # This is always the `data/` directory.
+  def datadir
+    ::File.join(location, 'data')
+  end
 
-  # Is there a <tt>data/</tt> location?
-  def datadir? ; ::File.exist?(datadir) ; end
+  # Is there a `data/` location?
+  def datadir?
+    ::File.exist?(datadir)
+  end
 
   #
   #def to_rb
@@ -409,24 +495,28 @@ class Library
     alias __require__ require
     alias __load__    load
 
+    #
     # In which library is the current file participating?
     #
-    # @return [Library] currently loading Library instance
+    # @return [Library] The library currently loading features.
+    #
     def __LIBRARY__
-      $LOAD_STACK.last
+      $LOAD_STACK.last.library
     end
 
-    # Activate a library.
-    # Same as #library_instance but will raise and error if the library is
-    # not found. This can also take a block to yield on the library.
+    #
+    # Activate a library, same as `Library.instance` but will raise and error
+    # if the library is not found. This can also take a block to yield on the
+    # library.
     #
     # @param name [String]
-    #   the library's name
+    #   The library's name.
     #
     # @param constraint [String]
-    #   a valid version constraint
+    #   A valid version constraint.
     #
-    # @return [Library] the Library instance
+    # @return [Library] The Library instance.
+    #
     def library(name, constraint=nil, &block) #:yield:
       Library.activate(name, constraint, &block)
     end

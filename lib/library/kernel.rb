@@ -5,6 +5,7 @@ $RUBY_IGNORE_CALLERS << /#{__FILE__}/  # TODO: should this be more general, e.g.
 
 module ::Kernel
 
+  #
   # Acquire feature - This is Roll's modern require/load method.
   # It differs from the usual `#require` or `#load` primarily by
   # the fact that it will search the current loading library,
@@ -26,12 +27,14 @@ module ::Kernel
   # @return [true, false]
   #   Was the feature newly required or successfully loaded, depending
   #   on the `:load` option settings.
+  #
   def acquire(pathname, options={}) #, &block)
     Library.acquire(pathname, options) #, &block)
   end
 
   module_function :acquire
 
+  #
   # Require feature - This is the same as acquire except that the
   # `:legacy` option is fixed as `true`.
   #
@@ -42,12 +45,14 @@ module ::Kernel
   #   Load options can be `:wrap`, `:load` and `:search`.
   #
   # @return [true,false] if feature was newly required
+  #
   def require(pathname, options={}) #, &block)
     Library.require(pathname, options) #, &block)
   end
 
   module_function :require
 
+  #
   # Load feature - This is the same as acquire except that the
   # `:legacy` and `:load` options are fixed as `true`.
   #
@@ -58,6 +63,7 @@ module ::Kernel
   #   Load options can be :wrap and :search.
   #
   # @return [true, false] if feature was successfully loaded
+  #
   def load(pathname, options={}) #, &block)
     Library.load(pathname, options) #, &block)
   end

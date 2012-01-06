@@ -56,6 +56,13 @@ class Library
     end
 
     #
+    def []=(name, library)
+      raise TypeError unless Library === library
+
+      @table[name.to_s] = library
+    end
+
+    #
     def each(&block)
       @table.each(&block)
     end
