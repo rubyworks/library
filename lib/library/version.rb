@@ -222,17 +222,25 @@ class Library
   end
 
   # VersionError is raised when a requested version cannot be found.
+  #
   class VersionError < ::RangeError  # :nodoc:
   end
 
   # VersionConflict is raised when selecting another version
   # of a library when a previous version has already been selected.
+  #
   class VersionConflict < ::LoadError  # :nodoc:
+
+    #
+    # Setup conflict error instance.
     #
     def initialize(lib1, lib2=nil)
       @lib1 = lib1
       @lib2 = lib2
     end
+
+    #
+    #
     #
     def message
       if @lib2
@@ -241,6 +249,7 @@ class Library
         "previously selected version -- #{@lib1.inspect}"
       end
     end
+
   end
 
 end

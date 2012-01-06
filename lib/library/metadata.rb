@@ -1,7 +1,7 @@
 class Library
 
-  # The Metadata call encapsulates a library's package,
-  # profile and requirements information.
+  # The Metadata call encapsulates a library's information, in particular
+  # `name`, `version` and `load_path`.
   #
   class Metadata
 
@@ -22,22 +22,33 @@ class Library
     def initialize(location, metadata={})
       @location  = location
 
-      data = metadata.rekey
+      @load = metadata.delete(:load)
+      @load = true if @load.nil?  # default is true
 
-      self.name      = data[:name]     if data[:name]
-      self.version   = data[:version]  if data[:version]
-      self.load_path = data[:loadpath] if data[:loadpath]
-      self.title     = data[:title]    if data[:title]
-      self.date      = data[:date]     if data[:date]
-      self.omit      = data[:omit]
+      @data = {}
 
-      if data[:load] == false
-        raise LoadError unless @name && @version   # todo: just @name ?
-        @loaded = true
+      update(metadata)
+
+      if @load
+        if @data.values_at('name', 'version', 'load_path').compact.size != 3
+          load_metadata
+        end
       else
-        @loaded = false
-        load_metadata unless @name && @version && @load_path
+        raise LoadError unless data['name'] && data['version']   # todo: just name ?
       end
+    end
+
+    #
+    #
+    #
+    def update(data)
+      @data.update(data.rekey)
+
+      self.name      = data[:name]      if data[:name]
+      self.version   = data[:version]   if data[:version]
+      self.load_path = data[:load_path] if data[:load_path]
+      self.date      = data[:date]      if data[:date]
+      self.omit      = data[:omit]
     end
 
     #
@@ -49,7 +60,7 @@ class Library
     # Local load paths.
     #
     def load_path
-      @load_path || ['lib']
+      @data[:load_path] || ['lib']
     end
 
     alias_method :loadpath, :load_path
@@ -64,7 +75,7 @@ class Library
       when String
         path = path.strip.split(/[,;:\ \n\t]/).map{|s| s.strip}
       end
-      @load_path = path
+      @data[:load_path] = path
     end
 
     alias_method :loadpath=, :load_path=
@@ -73,14 +84,14 @@ class Library
     # Name of library.
     #
     def name
-      @name
+      @data[:name]
     end
 
     #
     # Set name.
     #
     def name=(string)
-      @name = string.to_s if string
+      @data[:name] = string.to_s if string
     end
 
     #
@@ -91,70 +102,62 @@ class Library
     # environment) we fallback to a version of '0.0.0'.
     #
     def version
-      @version ||= Version.new('0.0.0')
+      @data[:version] ||= Version.new('0.0.0')
     end
 
     #
     # Set version, converts string into Version number class.
     #
     def version=(string)
-      @version = Version.new(string) if string
+      @data[:version] = Version.new(string) if string
     end
 
     #
     # Release date.
     #
     def date
-      @date || (load_metadata; @date)
+      @data[:date] || (load_metadata; @data[:data])
     end
 
-    #
-    # Alias reference to `#date`.
-    #
     alias_method :released, :date
 
-    # TODO: Convert date to Time object?
+    # TODO: Should we convert date to Time object?
 
     #
     # Set the date.
     #
     def date=(date)
-      @date = date
+      @data[:date] = date
     end
 
-    #
-    # Display name, e.g. "ActiveRecord".
-    #
-    def title
-      @title || (load_metadata; @title)
-    end
+    alias_method :released=, :date=
 
     #
-    # Set title.
+    # Runtime and development requirements combined.
     #
-    def title=(title)
-      @title = title.to_s if title
+    def requirements
+      @data[:requirements]
     end
 
     #
     # Runtime requirements.
     #
     def runtime_requirements
-      @runtime_requirements ||= (load_metadata; @runtime_requirements)
+      @runtime_requirements ||= requirements.reject{ |r| r['development'] }
     end
 
     #
     # Development requirements.
     #
     def development_requirements
-      @development_requirements || (load_metadata; @development_requirements)
+      @development_requirements ||= requirements.select{ |r| r['development'] }
     end
 
     #
-    # Runtime and development requirements combined.
+    # Access to non-primary metadata.
     #
-    def requirements
-      runtime_requirements + development_requirements
+    def [](name)
+      @data[name.to_s]
     end
 
     # TODO: Should we support +omit+ setting, or should we add a way to 
@@ -178,7 +181,7 @@ class Library
     # Does this location have .ruby entries?
     #
     def dotruby?
-      @dot_ruby ||= File.exist?(File.join(location, '.ruby'))
+      @_dotruby ||= File.exist?(File.join(location, '.ruby'))
     end
 
     #
@@ -230,33 +233,40 @@ class Library
     end
 
     #
+    # Returns hash of primary metadata.
+    #
+    # @return [Hash] primary metdata
+    #
     def to_h
-      { :location     => location,
-        :name         => name,
-        :version      => version.to_s,
-        :loadpath     => loadpath,
-        :title        => title,
-        :date         => date,
-        :requirements => requirements
+      { 'location'     => location,
+        'name'         => name,
+        'version'      => version.to_s,
+        'date'         => date.to_s,
+        'load_path'    => load_path,
+        'requirements' => requirements,
+        'omit'         => omit
       }
     end
+
+    #
+    #def merge!(data)
+    #  data['version'] = Version.new(data['version']) if data['version']
+    #  @data.merge!(data)
+    #end
 
   private
 
     # Load metadata.
     def load_metadata
-      return if @loaded
-
-      @loaded = true
-
-      @runtime_requirements     = []
-      @development_requirements = []
+      return unless @load
 
       if dotruby?
         load_dotruby
       elsif gemspec?
         load_gemspec
       end
+
+      @load = false  # loading is complete
     end
 
     # Load metadata for .ruby file.
@@ -265,27 +275,35 @@ class Library
 
       data = YAML.load_file(File.join(location, '.ruby'))
 
-      if Hash === data
-        self.name         = data['name']
-        self.version      = data['version']      #|| '0.0.0'
-        self.load_path    = data['load_path']    || ['lib']
+      update(data)
 
-        self.title        = data['title']        || data['name'].capitalize
-        self.date         = data['date']
-
-        data['requirements'].each do |req|
-          if req['development']
-            self.development_requirements << [req['name'], req['version']]
-          else
-            self.runtime_requirements << [req['name'], req['version']]
-          end
-        end
-      end
+      #if Hash === data
+      #  self.name         = data['name']
+      #  self.version      = data['version']      #|| '0.0.0'
+      #  self.load_path    = data['load_path']    || ['lib']
+      #
+      #  self.title        = data['title']        || data['name'].capitalize
+      #  self.date         = data['date']
+      #
+      #  reqs = data['requirements'] || []
+      #  reqs.each do |req|
+      #    if req['development']
+      #      self.development_requirements << [req['name'], req['version']]
+      #    else
+      #      self.runtime_requirements << [req['name'], req['version']]
+      #    end
+      #  end
+      #end
     end
 
-    # Load metadata from a gemspec.
+    # Load metadata from a gemspec. This is a fallback option. It is highly 
+    # recommended that a project have a `.ruby` file instead.
+    #
+    # This method requires that the `dotruby` gem be installed.
+    #
     def load_gemspec
-      require 'rubygems'
+      #require 'rubygems'
+      require 'dotruby/rubygems'
 
       text = File.read(gemspec_file)
       if text =~ /\A---/  # TODO: improve
@@ -295,34 +313,48 @@ class Library
         spec = eval(text)
       end
 
-      self.name         = spec.name
-      self.version      = spec.version.to_s
-      self.load_path    = spec.require_paths
-      self.date         = spec.date
-      self.title        = spec.name.capitalize  # for lack of better way
+      dotruby = DotRuby::Spec.parse_gemspec(spec)
 
-      spec.dependencies.each do |dep|
-        if dep.development?
-          self.development_requirements < [dep.name, dep.version]
-        else
-          self.runtime_requirements < [dep.name, dep.verison]
-        end
-      end
+      data = dotruby.to_h
+
+      udpate(data)
+
+      return
+
+      #self.name         = spec.name
+      #self.version      = spec.version.to_s
+      #self.load_path    = spec.require_paths
+      #self.date         = spec.date
+      #self.title        = spec.name.capitalize  # for lack of better way
+
+      #spec.dependencies.each do |dep|
+      #  if dep.development?
+      #    self.development_requirements < [dep.name, dep.version]
+      #  else
+      #    self.runtime_requirements < [dep.name, dep.verison]
+      #  end
+      #end
     end
 
+    #
     # Returns the path to the .gemspec file.
+    #
     def gemspec_file
       gemspec_system_file || gemspec_local_file
     end
 
+    #
     # Returns the path to a gemspec file located in the project location,
     # if it exists. Otherwise returns +nil+.
+    #
     def gemspec_file_local
       @_gemspec_file_local ||= Dir[File.join(location, '*.gemspec')].first
     end
 
+    #
     # Returns the path to a gemspec file located in the gems/specifications
     # directory, if it exists. Otherwise returns +nil+.
+    #
     def gemspec_file_system
       @_gemspec_file_system ||= (
         pkgname = File.basename(location)
@@ -355,71 +387,4 @@ end
     #  end
     #end
 
-    #--
-    #def gemspec_parse
-    #  if !gemspec_local_file
-    #    gemspec_parse_location
-    #  else
-    #    @name     = gem.name
-    #    @version  = gem.version.to_s
-    #    @loadpath = gem.require_paths
-    #    #@date     = gem.date
-    #  end
-    #end
-    #++
-
-=begin
-    # Extract the minimal metadata from a gem location. This does not parse
-    # the actual gemspec, but parses the gem locations basename and looks for
-    # the presence of a `.require_paths` file. This is much more efficient.
-    def gemspec_parse_location
-      pkgname = File.basename(location)
-      if md = /^(.*?)\-(\d+.*?)$/.match(pkgname)
-        self.name     = md[1]
-        self.version  = md[2]
-      else
-        raise "Could not parse name and version from gem at `#{location}`."
-      end
-      file = File.join(location, '.require_paths')
-      if File.exist?(file)
-        text = File.read(file)
-        self.loadpath = text.strip.split(/\s*\n/)
-      else
-        self.loadpath = ['lib'] # TODO: also ,'bin'] ?
-      end
-    end
-=end
-
-#    # Save minimal `.ruby` entries.
-#    def dotruby_save
-#      require 'fileutils'
-#      dir = File.join(location, '.ruby')
-#      FileUtils.mkdir(dir)
-#      File.open(File.join(dir, 'name'), 'w'){ |f| f << name }
-#      File.open(File.join(dir, 'version'), 'w'){ |f| f << version.to_s }
-#      File.open(File.join(dir, 'loadpath'), 'w'){ |f| f << loadpath.join("\n") }
-#    end
-
-=begin
-    # Ensure there is a set of dotruby entries. Presently this just checks to
-    # see if there are .ruby/ entries. If not and it is a gem location, it will
-    # use the gem's information to write the .ruby entries.
-    #
-    # NOTE: There is no further fallback, as there does not seem to be any other
-    # reliable means for determining the minimum information (though Bundler
-    # is pushing the version.rb file, but I am suspect of this design).
-    # There is also the possible VERSION file, but there are at least three
-    # differnt formats for this file in common use --I am not sure it's worth
-    # the coding effort. Just add the .ruby entires already!
-    def dotruby_ensure
-      return location if dotruby?
-      if gemspec?
-        gemspec_parse
-        #dotruby_save
-        return location
-      else
-        return nil
-      end
-    end
-=end
 
