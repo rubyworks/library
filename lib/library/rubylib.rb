@@ -13,10 +13,30 @@ require 'library'
 class RubyLibrary < Library
 
   #
+  # Arch directory relative to the ruby lib dir.
+  #
+  #ARCHPATH = ::RbConfig::CONFIG['archdir'].sub(::RbConfig::CONFIG['rubylibdir']+'/', '')
+
+  #
+  # Arch directory relative to the site_ruby lib dir.
+  #
+  #ARCHPATH = ::RbConfig::CONFIG['sitearchdir'].sub(::RbConfig::CONFIG['sitelibdir']+'/', '')
+
+  #
   # Setup new Ruby library.
   #
   def initialize #(location, name=nil, options={})
-    @location = ::RbConfig::CONFIG['rubylibdir']
+    rubylibdir  = ::RbConfig::CONFIG['rubylibdir']
+    sitelibdir  = ::RbConfig::CONFIG['sitelibdir']
+
+    rubyarchdir = ::RbConfig::CONFIG['archdir']
+    sitearchdir = ::RbConfig::CONFIG['sitearchdir']
+
+    common = find_base_path([rubylibdir, sitelibdir])
+
+    @location = common
+    @loadpath = [sitelibdir, sitearchdir, rubylibdir, rubyarchdir].map{ |d| d.sub(common+'/','') }
+
     @name     = 'ruby'
     @options  = {} #?
   end
@@ -35,10 +55,6 @@ class RubyLibrary < Library
     RUBY_VERSION
   end
 
-  #
-  # Arch directory relative to the ruby lib dir.
-  #
-  ARCHPATH = ::RbConfig::CONFIG['archdir'].sub(::RbConfig::CONFIG['rubylibdir']+'/', '')
 
   # TODO: 1.9+ need to remove rugbygems ?
 
@@ -171,8 +187,29 @@ class RubyLibrary < Library
   def libfile(lpath, file, ext=nil)
     Library::Feature.new(self, lpath, file, ext) 
   end
+
+private
+
+  # Given an array of path strings, find the longest common prefix path.
+  def find_base_path(paths)
+    return paths.first if paths.length <= 1
+    arr = paths.sort
+    f = arr.first.split('/')
+    l = arr.last.split('/')
+    i = 0
+    i += 1 while f[i] == l[i] && i <= f.length
+    f.slice(0, i).join('/')
+  end
+
 end
 
+
+
+
+
+
+
+=begin
 # TODO: Can we merge RubySiteLibrary with RubyLibrary? If not the maybe rename RubyLibrary to RubyCoreLibrary.
 # We could unite them, but only if we set @location to whatever path rubylibdir and sitelibdir
 # have in common, which might not be much, i.e. `/usr/local`
@@ -221,4 +258,4 @@ class RubySiteLibrary < RubyLibrary
   end
 
 end
-
+=end

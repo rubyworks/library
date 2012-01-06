@@ -157,7 +157,7 @@ class Library
     # Access to non-primary metadata.
     #
     def [](name)
-      @data[name.to_s]
+      @data[name.to_sym]
     end
 
     # TODO: Should we support +omit+ setting, or should we add a way to 

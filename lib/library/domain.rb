@@ -297,11 +297,23 @@ class Library
     # Load up the ledger with a given set of paths.
     #
     def prime(paths)
+      require 'library/rubylib'
+
+      sub_prime(paths)
+
+      $LEDGER['ruby'] = RubyLibrary.new
+      $LEDGER
+    end
+
+  private
+
+    #
+    def sub_prime(paths)
       paths.each do |path|
         if File.exist?(File.join(path, '.ruby'))
           $LEDGER << path
         else
-          prime(Dir[File.join(path, '*/')])
+          sub_prime(Dir[File.join(path, '*/')])
         end
       end
     end
