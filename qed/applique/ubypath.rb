@@ -1,4 +1,4 @@
-projects = File.dirname(__FILE__) + '/projects'
+projects = File.dirname(__FILE__) + '/../fixtures'
 
 ENV['RUBYPATH'] = projects
 

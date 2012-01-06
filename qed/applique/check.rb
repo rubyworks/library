@@ -5,3 +5,7 @@ end
 # Make sure we use local version of files.
 #$:.unshift('lib')
 
+def fixtures
+  @_fixtures ||= File.dirname(__FILE__) + '/../fixtures'
+end
+
