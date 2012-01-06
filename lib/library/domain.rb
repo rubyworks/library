@@ -46,9 +46,9 @@ class Library
 
       if local
         # try the load stack (TODO: just last or all?)
-        if script = $LOAD_STACK.last
-        #$LOAD_STACK.reverse_each do |script|
-          lib = script.library
+        if feature = $LOAD_STACK.last
+        #$LOAD_STACK.reverse_each do |feature|
+          lib = feature.library
           #if file = lib.include?(fname, options)
           if file = lib.include?(path, options)
             unless $LOAD_STACK.include?(file)
@@ -270,16 +270,16 @@ class Library
     end
 
     #
-    # Acquire a script within the library.
+    # Require a feature from the library.
     #
-    # @param [String] path
-    #   File name of script relative to library's loadpath.
+    # @param [String] pathname
+    #   The pathname of feature relative to library's loadpath.
     #
     # @param [Hash] options
     #
-    # @return [true, false] If script was newly required or successfully loaded.
+    # @return [true,false] If feature was newly required or successfully loaded.
     #
-    def require(path, options={})
+    def require(pathname, options={})
       if file = $LOAD_CACHE[path]
         if options[:load]
           return file.load
@@ -288,16 +288,16 @@ class Library
         end
       end
 
-      if file = Library.find(path, options)
+      if feature = Library.find(path, options)
         #file.library_activate
         $LOAD_CACHE[path] = file
-        return file.acquire(options)
+        return feature.acquire(options)
       end
 
       if options[:load]
-        __load__(path, options[:wrap])
+        __load__(pathname, options[:wrap])
       else
-        __require__(path)
+        __require__(pathname)
       end
     end
 
@@ -306,12 +306,12 @@ class Library
     # loaded files will be reloaded and standard extensions will not be
     # automatically appended.
     #
-    # @param path [String]
-    #   file name of script relative to library's loadpath
+    # @param pathname [String]
+    #   pathname of feature relative to library's loadpath
     #
-    # @return [true, false] if script was successfully loaded
+    # @return [true,false] if feature was successfully loaded
     #
-    def load(path, options={}) #, &block)
+    def load(pathname, options={}) #, &block)
       #options.merge!(block.call) if block
 
       options[:wrap]   = true if options and !(Hash===options)
@@ -319,7 +319,7 @@ class Library
       options[:suffix] = false
       options[:local]  = false
 
-      require(path, options)
+      require(pathname, options)
 
       #if file = $LOAD_CACHE[path]
       #  return file.load
@@ -350,18 +350,20 @@ class Library
     #
     #   require('facets:string/margin', :load=>true)
     #
-    # @param path [String]
-    #   file name of script relative to library's loadpath
+    # @param pathname [String]
+    #   pathname of feature relative to library's loadpath
     #
-    # @return [true, false] if script was newly required
+    # @return [true, false] if feature was newly required
     #
-    def acquire(path, options={}) #, &block)
+    def acquire(pathname, options={}) #, &block)
       #options.merge!(block.call) if block
       options[:local] = true
-      require(path, options)
+      require(pathname, options)
     end
 
+    #
     # Load up the ledger with a given set of paths.
+    #
     def prime(paths)
       paths.each do |path|
         if File.exist?(File.join(path, '.ruby'))

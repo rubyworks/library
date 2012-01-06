@@ -18,7 +18,7 @@ class Library
     # Error message string.
     #
     def to_s
-      "no such file to load -- #{@library_name}:#{@failed_path}"
+      "LoadError: cannot load such file -- #{@library_name}:#{@failed_path}"
     end
 
     #

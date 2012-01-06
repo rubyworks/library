@@ -2,12 +2,12 @@ require 'library/core_ext'
 require 'library/ledger'
 require 'library/load_error'
 require 'library/metadata'
-require 'library/script'
+require 'library/feature'
 require 'library/version'
 require 'library/domain'
 
 # Library class encapsulates a location on disc that contains a Ruby
-# project, with loadable scripts, of course.
+# project, with loadable features, of course.
 #
 class Library
 
@@ -231,23 +231,23 @@ class Library
       loadpath.each do |lpath|
         SUFFIXES.each do |ext|
           f = ::File.join(location, lpath, file + ext)
-          return script(lpath, file, ext) if ::File.file?(f)
+          return feature(lpath, file, ext) if ::File.file?(f)
         end
       end #unless legacy
       legacy_loadpath.each do |lpath|
         SUFFIXES.each do |ext|
           f = ::File.join(location, lpath, file + ext)
-          return script(lpath, file, ext) if ::File.file?(f)
+          return feature(lpath, file, ext) if ::File.file?(f)
         end
       end unless main
     else
       loadpath.each do |lpath|
         f = ::File.join(location, lpath, file)
-        return script(lpath, file) if ::File.file?(f)
+        return feature(lpath, file) if ::File.file?(f)
       end #unless legacy
       legacy_loadpath.each do |lpath|
         f = ::File.join(location, lpath, file)        
-        return script(lpath, file) if ::File.file?(f)
+        return feature(lpath, file) if ::File.file?(f)
       end unless main
     end
     nil
@@ -275,14 +275,16 @@ class Library
   end
 
   # Create a new Script object from +lpath+, +file+ and +ext+.
-  def script(lpath, file, ext=nil)
+  def feature(lpath, file, ext=nil)
     Script.new(self, lpath, file, ext)
   end
 
   #
-  def require(path, options={})
-    if file = include?(path, options)
-      file.require(options)
+  # Requre feature from library.
+  #
+  def require(pathname, options={})
+    if feature = find(pathname, options)
+      feature.require(options)
     else
       # TODO: silently?
       raise LoadError.new(path, name)
@@ -290,11 +292,14 @@ class Library
   end
 
   #
-  def load(path, options={})
-    if file = include?(path, options)
-      file.load(options)
+  # Load feature form library.
+  #
+  def load(pathname, options={})
+    #options[:load] = true
+    if feature = find(pathname, options)
+      feature.load(options)
     else
-      raise LoadError.new(path, name)
+      raise LoadError.new(pathname, self.name)
     end
   end
 

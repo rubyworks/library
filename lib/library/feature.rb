@@ -1,22 +1,27 @@
 class Library
 
-  # The Script class represents a single file in a library.
+  # The Feature class represents a single file within a library.
   #
-  class Script
+  # This class had been called `Script` until it occured to me that
+  # Ruby choose the name "feature" by it's use of tem in the global
+  # variable `$LOADED_FEATURES`.
+  #
+  class Feature
 
-    # Create a new Script instance.
+    #
+    # Create a new Feature instance.
     #
     # @param library [Library]
-    #   The Library object to which the file belongs.
+    #   The Library object to which the feature belongs.
     #
     # @param loadpath [String]
-    #   The loadpath within the library in which the script resides.
+    #   The loadpath within the library in which the feature resides.
     #
     # @param filename [String]
-    #   The file path of the script relative to the loadpath.
+    #   The file path of the feature relative to the loadpath.
     #
     # @param extension [Boolean]
-    #   File extension.
+    #   File extension to append to the feature filename.
     #
     def initialize(library, loadpath, filename, extension=nil)
       @library   = library
@@ -25,65 +30,86 @@ class Library
       @extension = extension
     end
 
+    #
     # The Library object to which the file belongs.
+    #
     attr_reader :library
 
-    # The loadpath within the library in which the script resides.
+    #
+    # The loadpath within the library in which the feature resides.
+    #
     attr_reader :loadpath
 
-    # The file path of the script relative to the loadpath.
+    #
+    # The file path of the feature relative to the loadpath.
+    #
     attr_reader :filename
 
     #
+    #
+    #
     attr_reader :extension
 
-    # Name of the library to which the script belongs.
     #
-    # @return [String] name of the script's library
+    # Name of the library to which the feature belongs.
+    #
+    # @return [String] name of the feature's library
+    #
     def library_name
       Library===library ? library.name : nil
     end
 
     #
+    #
+    #
     def library_activate
       library.activate if Library===library
     end
 
+    #
     # Library location.
     #
     # @return [Sting] location of library
+    #
     def location
       Library===library ? library.location : library
     end
 
-    # Full path name of of script.
     #
-    # @return [String] expanded file path of script 
+    # Full path name of of feature.
+    #
+    # @return [String] expanded file path of feature 
+    #
     def fullname
       @fullname ||= ::File.join(location, loadpath, filename + (extension || ''))
     end
 
-    # The path of the script relative to the loadpath.
+    #
+    # The path of the feature relative to the loadpath.
     #
     # @return [String] file path less location and loadpath
+    #
     def localname
       @localname ||= ::File.join(filename + (extension || ''))
     end
 
-
-    # Acquire the script --Roll's advanced require/load method.
     #
+    # Acquire the feature --Roll's advanced require/load method.
     #
-    def acquire(opts={})
-      if wrap = opts.delete(:load) # TODO: why delete?
-        load(opts[:wrap])
+    # @return [true,false] true if loaded, false if it already has been loaded.
+    #
+    def acquire(options={})
+      if options[:load] # TODO: .delete(:load) ?
+        load(options)
       else
-        require
+        require(options)
       end
     end
 
-    # Require script.
     #
+    # Require feature.
+    #
+    # @return [true,false] true if loaded, false if it already has been loaded.
     #
     def require(options={})
       if library_name == 'ruby' or library_name == 'site_ruby'
@@ -103,8 +129,10 @@ class Library
       success
     end
 
-    # Load script.
     #
+    # Load feature.
+    #
+    # @return [true,false] true if loaded, false if it already has been loaded.
     #
     def load(options={})
       if library_name == 'ruby' or library_name == 'site_ruby'
@@ -114,7 +142,7 @@ class Library
       Library.load_stack << self #library
       begin
         library_activate unless options[:force]
-        success = __load__(fullname)
+        success = __load__(fullname, options[:wrap])
       #rescue ::LoadError => load_error
       #  raise LoadError.new(localname, library_name)
       ensure
@@ -123,45 +151,55 @@ class Library
       success
     end
 
-
-    # Compare this scripts full path name to another using `#==`.
     #
-    # @param [Script, String] another script or file path.
+    # Compare this features full path name to another using `#==`.
     #
-    # @return [true, false] if scripts are the same file
+    # @param [Feature,String] another feature or file path.
+    #
+    # @return [true,false] do the features represent the the same file
+    #
     def ==(other)
       fullname == other.to_s
     end
 
+    #
     # Same as `#==`.
     #
-    # @param [Script, String] another script or file path.
+    # @param [Feature, String] another feature or file path.
     #
-    # @return [true, false] if scripts are the same file
+    # @return [true, false] if features are the same file
+    #
     def eql?(other)
       fullname == other.to_s
     end
 
+    #
     # Same a fullname.
     #
     # @return [String] expanded file path
+    #
     def to_s
       fullname
     end
 
+    #
     # Same a fullname.
     #
     # @return [String] expanded file path
+    #
     def to_str
       fullname
     end
 
-    # Use `#fullname` to calculate a hash value for the script file.
+    #
+    # Use `#fullname` to calculate a hash value for the feature file.
     #
     # @return [Integer] hash value
+    #
     def hash
       fullname.hash
     end
+
   end
 
 end
