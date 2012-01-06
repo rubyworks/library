@@ -1,41 +1,62 @@
 class Library
-  require 'roll/library/requirements'
 
   # The Metadata call encapsulates a library's package,
   # profile and requirements information.
+  #
   class Metadata
 
-    # New metadata object.
-    def initialize(location, data={})
+    #
+    # Setup new metadata object.
+    #
+    # @param [String] location
+    #   Location of project on disc.
+    #
+    # @param [Hash] metadata
+    #   Manual metadata settings.
+    #
+    # @option metadata [Boolean] :load
+    #   Set to +false+ will prevent metadata being loaded
+    #   from .ruby or .gemspec file, but a LoadError will
+    #   be raised without `:name` and `:version`.
+    #
+    def initialize(location, metadata={})
       @location  = location
+
+      data = metadata.rekey
 
       self.name      = data[:name]     if data[:name]
       self.version   = data[:version]  if data[:version]
       self.load_path = data[:loadpath] if data[:loadpath]
+      self.title     = data[:title]    if data[:title]
+      self.date      = data[:date]     if data[:date]
+      self.omit      = data[:omit]
 
-      @loaded = false
-
-      load_metadata if not primary_loaded?
+      if data[:load] == false
+        raise LoadError unless @name && @version   # todo: just @name ?
+        @loaded = true
+      else
+        @loaded = false
+        load_metadata unless @name && @version && @load_path
+      end
     end
 
-    # Is the primary metadata loaded? Primary metadata is the name,
-    # version and loadpath.
-    def primary_loaded?
-      @name && @version && @loadpath
-    end
-
+    #
     # Location of library.
+    #
     attr :location
 
-
+    #
     # Local load paths.
+    #
     def load_path
       @load_path || ['lib']
     end
 
     alias_method :loadpath, :load_path
 
+    #
     # Set the loadpath.
+    #
     def load_path=(path)
       case path
       when nil
@@ -48,81 +69,122 @@ class Library
 
     alias_method :loadpath=, :load_path=
 
+    #
     # Name of library.
+    #
     def name
       @name
     end
 
+    #
     # Set name.
+    #
     def name=(string)
       @name = string.to_s if string
     end
 
-    # Version number. Technically, a library should not appear in a ledger
-    # list if it lacks a VERSION file. However, just in case this occurs
-    # (say by a hand edited environment) we fallback to a version of '0.0.0'.
+    #
+    # Version number.
+    #
+    # Technically, a library should not appear in a ledger list if it lacks
+    # a version. However, just in case this occurs (say by a hand edited
+    # environment) we fallback to a version of '0.0.0'.
+    #
     def version
-      @version
+      @version ||= Version.new('0.0.0')
     end
 
+    #
     # Set version, converts string into Version number class.
+    #
     def version=(string)
       @version = Version.new(string) if string
     end
 
+    #
     # Release date.
+    #
     def date
       @date || (load_metadata; @date)
     end
 
-    # Alias for `#date`.
+    #
+    # Alias reference to `#date`.
+    #
     alias_method :released, :date
 
+    # TODO: Convert date to Time object?
+
+    #
+    # Set the date.
     #
     def date=(date)
       @date = date
     end
 
-    # Display name, e.g. "ActiveRecord"
+    #
+    # Display name, e.g. "ActiveRecord".
+    #
     def title
       @title || (load_metadata; @title)
     end
 
+    #
+    # Set title.
     #
     def title=(title)
       @title = title.to_s if title
     end
 
     #
+    # Runtime requirements.
+    #
     def runtime_requirements
       @runtime_requirements ||= (load_metadata; @runtime_requirements)
     end
 
+    #
+    # Development requirements.
     #
     def development_requirements
       @development_requirements || (load_metadata; @development_requirements)
     end
 
     #
+    # Runtime and development requirements combined.
+    #
     def requirements
       runtime_requirements + development_requirements
     end
 
+    # TODO: Should we support +omit+ setting, or should we add a way to 
+    # exclude loctions via environment setting?
+
+    #
     # Omit from any ledger?
     #
-    # TODO: Should we support +omit+ setting, or should we add a way to 
-    # exclude loctions from from the environment?
     def omit?
       @omit
     end
 
+    #
+    # Set omit.
+    #
+    def omit=(boolean)
+      @omit = boolean
+    end
+
+    #
     # Does this location have .ruby entries?
+    #
     def dotruby?
       @dot_ruby ||= File.exist?(File.join(location, '.ruby'))
     end
 
+    #
     # Deterime if the location is a gem location. It does this by looking
     # for the corresponding `gems/specification/*.gemspec` file.
+    #
     def gemspec?
       #return true if Dir[File.join(location, '*.gemspec')].first
       pkgname = File.basename(location)
@@ -131,7 +193,9 @@ class Library
       Dir[File.join(specdir, "#{pkgname}.gemspec")].first
     end
 
+    #
     # Access to complete gemspec. This is for use with extended metadata.
+    #
     def gemspec
       @_gemspec ||= (
         require 'rubygems'
@@ -139,11 +203,14 @@ class Library
       )
     end
 
+    #
     # Returns a list of Library and/or [name, vers] entries.
     # A Libray entry means the library was loaded, whereas the
     # name/vers array means it failed. (TODO: Best way to do this?)
     #
-    # TODO: don't do stdout here
+    # @todo Better name for this method?
+    # @todo Do not output to stdout here.
+    #
     def verify_requirements(verbose=false)
       libs, fail = [], []
       runtime_requirements.each do |(name, vers)|
@@ -203,7 +270,7 @@ class Library
         self.version      = data['version']      #|| '0.0.0'
         self.load_path    = data['load_path']    || ['lib']
 
-        self.title        = data['title']
+        self.title        = data['title']        || data['name'].capitalize
         self.date         = data['date']
 
         data['requirements'].each do |req|

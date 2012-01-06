@@ -44,45 +44,112 @@ class Library
   SUFFIX_PATTERN = "{#{SUFFIXES.join(',')}}"
 
   #
+  # A shortcut for #instance.
+  #
+  # @return [Library] an instance of Library
+  #
+  def self.[](name, constraint=nil)
+    instance(name, constraint)
+  end
+
+  #
+  # Get an instance of a library by name, or name and version.
+  # Libraries are singleton, so once loaded the same object is
+  # always returned.
+  #
+  def self.instance(name, constraint=nil)
+    #raise "no library -- #{name}" unless include?(name)
+    return nil unless $LEDGER.key?(name)
+
+    library = $LEDGER[name]
+
+    if Library===library
+      if constraint # FIXME: it's okay if constraint fits current
+        raise Library::VersionConflict, library
+      end
+    else # library is an array of versions
+      if constraint
+        compare = Library::Version.constraint_lambda(constraint)
+        library = library.select{ |lib| compare[lib.version] }.max
+      else
+        library = library.max
+      end
+      unless library
+        raise VersionError, "no library version -- #{name} #{constraint}"
+      end
+      #index[name] = library #constrain(library)
+      library.activate
+    end
+
+    library
+  end
+
+  #
+  # Activate a library. Same as #instance but will raise and error if the
+  # library is not found. This can also take a block to yield on the library.
+  #
+  # @param [String] name
+  #   Name of library.
+  #
+  # @param [String] constraint
+  #   Valid version constraint.
+  #
+  # @return [Library]
+  #   The activated Library object.
+  #
+  # @todo Should we also check $"? Eg. `return false if $".include?(path)`.
+  #
+  def self.activate(name, constraint=nil) #:yield:
+    library = instance(name, constraint)
+    unless library
+      raise LoadError, "no library -- #{name}"
+    end
+    library.activate
+    yield(library) if block_given?
+    library
+  end
+
+  #
+  # Like `#new`, but adds library to library ledger.
+  #
+  # @todo Better name for this method?
+  #
+  # @return [Library] The new library.
+  #
+  def self.add(location)
+    #$LEDGER.add_location(location)
+
+    library = new(location)
+
+    entry = $LEDGER[library.name]
+
+    if Array === entry
+      entry << library unless entry.include?(library)
+    end
+
+    library
+  end
+
+  #
   # New Library object.
   #
   # If data is given it must have `:name` and `:version`. It can
   # also have `:loadpath`, `:date`, and `:omit`.
   #
   # @param location [String]
-  #   expanded file path to library's root directory
+  #   Expanded file path to library's root directory.
   #
-  # @param data [Hash]
-  #   priming matadata (to circumvent loading it from `.ruby` file)
+  # @param metadata [Hash]
+  #   Overriding matadata (to circumvent loading it from `.ruby` file).
   #
-  def initialize(location, free=false) #, data={})
+  def initialize(location, metadata={})
     @location = location
     @active   = false
 
-    #data = (data.rekey)
-
-    #if data.empty?
-    #  load_metadata
-    #else
-    #  @name     = data[:name]
-    #  @version  = Version.new(data[:version])
-    #  @loadpath = data[:loadpath]
-    #  @date     = data[:date]  # TODO: convert to Time
-    #  @omit     = data[:omit]
-    #end
-
-    @metadata = Metadata.new(@location) #, :name=>name)
+    @metadata = Metadata.new(@location, metadata)
 
     raise "Non-conforming library (missing name) -- `#{location}'" unless name
     raise "Non-conforming library (missing version) -- `#{location}'" unless version
-
-    ## if not free and another version is not already active add to ledger
-    if not free
-      entry = $LEDGER[name]
-      if Array === entry
-        entry << self unless entry.include?(self)
-      end
-    end
   end
 
   #

@@ -23,7 +23,7 @@ class Library
       when Library
         add_library(lib)
       else
-        add_path(lib)
+        add_location(lib)
       end
       self
     end
@@ -31,12 +31,21 @@ class Library
     alias_method :<<, :add
 
     #
-    def add_path(path)
-      raise TypeError unless File.directory?(path)
+    # Add library to ledger given a location.
+    #
+    def add_location(location)
+      raise TypeError unless File.directory?(location)
 
       begin
-        library = Library.new(path, true)
-        @table[library.name] << library
+        library = Library.new(location)
+
+        entry = @table[library.name]
+
+        if Array === entry
+          entry << library unless entry.include?(library)
+        else
+          # todo: what to do here?
+        end
       rescue Exception => error
         warn error.message if ENV['debug']
         #warn "invalid library path -- `#{path}'" if ENV['roll_debug']
@@ -44,10 +53,16 @@ class Library
     end
 
     #
+    # Add library to ledger given a Library object.
+    #
     def add_library(library)
       raise TypeError unless Library === library
 
-      @table[library.name] << library
+      entry = @table[library.name]
+
+      if Array === entry
+        entry << library unless entry.include?(library)
+      end
     end
 
     #
@@ -70,6 +85,11 @@ class Library
     #
     def size
       @table.size
+    end
+
+    #
+    def key?(name)
+      @table.key?(name.to_s)
     end
 
     #

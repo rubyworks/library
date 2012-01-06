@@ -202,74 +202,6 @@ class Library
     end
 
     #
-    # A shortcut for #instance.
-    #
-    # @return [Library] an instance of Library
-    #
-    def [](name, constraint=nil)
-      instance(name, constraint)
-    end
-
-    #
-    # Get an instance of a library by name, or name and version.
-    # Libraries are singleton, so once loaded the same object is
-    # always returned.
-    #
-    def instance(name, constraint=nil)
-      name = name.to_s
-      #raise "no library -- #{name}" unless include?(name)
-      return nil unless $LEDGER.include?(name)
-
-      library = $LEDGER[name]
-
-      if Library===library
-        if constraint # FIXME: it's okay if constraint fits current
-          raise Library::VersionConflict, library
-        else
-          library
-        end
-      else # library is an array of versions
-        if constraint
-          compare = Library::Version.constraint_lambda(constraint)
-          library = library.select{ |lib| compare[lib.version] }.max
-        else
-          library = library.max
-        end
-        unless library
-          raise VersionError, "no library version -- #{name} #{constraint}"
-        end
-        #index[name] = library #constrain(library)
-        library.activate
-        return library
-      end
-    end
-
-    #
-    # Activate a library. Same as #instance but will raise and error if the
-    # library is not found. This can also take a block to yield on the library.
-    #
-    # @param [String] name
-    #   Name of library.
-    #
-    # @param [String] constraint
-    #   Valid version constraint.
-    #
-    # @return [Library]
-    #   The activated Library object.
-    #
-    # @todo Should we also check $"? Eg. `return false if $".include?(path)`.
-    #
-    def activate(name, constraint=nil) #:yield:
-      library = instance(name, constraint)
-      unless library
-        raise LoadError, "no library -- #{name}"
-      end
-      library.activate
-      yield(library) if block_given?
-      library
-    end
-
-    #
     # Require a feature from the library.
     #
     # @param [String] pathname
@@ -280,7 +212,7 @@ class Library
     # @return [true,false] If feature was newly required or successfully loaded.
     #
     def require(pathname, options={})
-      if file = $LOAD_CACHE[path]
+      if file = $LOAD_CACHE[pathname]
         if options[:load]
           return file.load
         else
@@ -288,9 +220,9 @@ class Library
         end
       end
 
-      if feature = Library.find(path, options)
+      if feature = Library.find(pathname, options)
         #file.library_activate
-        $LOAD_CACHE[path] = file
+        $LOAD_CACHE[pathname] = file
         return feature.acquire(options)
       end
 
