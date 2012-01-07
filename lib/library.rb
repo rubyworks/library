@@ -152,6 +152,15 @@ class Library
     @active = true
   end
 
+  #
+  # Set active flag to true.
+  #
+  def activate!(ledger)
+    vers = ledger[name]
+    raise VersionConflict.new(self, vers) if vers != self
+    @active = true
+  end
+
 =begin
   # Constrain a library to a single version. This means, if anyone tries
   # to use a different version once a library has been constrained, an

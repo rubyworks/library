@@ -196,8 +196,10 @@ class Library
         unless library
           raise VersionError, "no library version -- #{name} #{constraint}"
         end
-        #index[name] = library #constrain(library)
-        library.activate
+
+        self[name] = library #constrain(library)
+
+        library.activate!(self)  # library.instance_variable_set('@active', true)
       end
 
       library
