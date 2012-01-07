@@ -240,9 +240,11 @@ class Library
   #
   # @return [Array] list of load paths
   #
-  def loadpath
+  def load_path
     metadata.load_path
   end
+
+  alias_method :loadpath, :load_path
 
   #
   # Release date.
@@ -277,10 +279,12 @@ class Library
     requirements.select{ |req| req.runtime? }
   end
 
+  # TODO: Not yet using omit.
+
   #
   # Omit library form ledger?
   #
-  # @return [Boolean] if ture, omit library from ledger
+  # @return [Boolean] if true, omit library from ledger
   #
   def omit
     @omit

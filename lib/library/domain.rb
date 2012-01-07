@@ -12,9 +12,9 @@ class Library
     end
 
     #
-    # Find matching libary files. This is the "mac daddy" method used by
+    # Find matching library features. This is the "mac daddy" method used by
     # the #require and #load methods to find the specified +path+ among
-    # the various libraries and their loadpaths.
+    # the various libraries and their load paths.
     #
     def find(path, options={})
       path   = path.to_s
@@ -22,38 +22,40 @@ class Library
       #suffix = options[:suffix]
       search = options[:search]
       local  = options[:local]
+      from   = options[:from]
 
       $stderr.print path if monitor?  # debugging
 
-      # Ruby appears to have a special exception for enumerator!!!
-      #return nil if path == 'enumerator' 
-
       # absolute, home or current path
+      #
+      # NOTE: Ideally we would try to find a matching path among avaliable libraries
+      # so that the library can be activated, however this would probably add a 
+      # too much overhead and will by mostly a YAGNI, so we forgo any such
+      # functionality, at least for now. 
       case path[0,1]
       when '/', '~', '.'
         $stderr.puts "  (absolute)" if monitor?  # debugging
         return nil
       end
 
-      #if path.index(':') # a specified library
-      #  name, fname = path.split(':')
-      #  lib  = library(name)
-      #  file = lib.include?(fname, options)
-      #  raise LoadError, "no such file to load -- #{path}" unless file
-      #  $stderr.puts "  (direct)" if monitor?  # debugging
-      #  return file
-      #end
+      # from explicit library
+      if from
+        lib = library(from)
+        ftr = lib.find(path, options)
+        raise LoadError, "no such file to load -- #{path}" unless file
+        $stderr.puts "  (direct)" if monitor?  # debugging
+        return ftr
+      end
 
+      # check the load stack (TODO: just last or all?)
       if local
-        # try the load stack (TODO: just last or all?)
-        if feature = $LOAD_STACK.last
+        if last = $LOAD_STACK.last
         #$LOAD_STACK.reverse_each do |feature|
-          lib = feature.library
-          #if file = lib.include?(fname, options)
-          if file = lib.include?(path, options)
-            unless $LOAD_STACK.include?(file)
+          lib = last.library
+          if ftr = lib.find(path, options)
+            unless $LOAD_STACK.include?(ftr)  # prevent recursive loading
               $stderr.puts "  (2 stack)" if monitor?  # debugging
-              return file
+              return ftr
             end
           end
         end
@@ -64,26 +66,26 @@ class Library
       # if the head of the path is the library
       if fname
         lib = Library[name]
-        if lib && file = lib.include?(path, options) || lib.include?(fname, options)
+        if lib && ftr = lib.find(path, options) || lib.find(fname, options)
           $stderr.puts "  (3 indirect)" if monitor?  # debugging
-          return file
+          return ftr
         end
       end
 
       # plain library name?
       if !fname && lib = Library.instance(path)
-        if file = lib.default # default file to load
+        if ftr = lib.default  # default feature to load
           $stderr.puts "  (5 plain library name)" if monitor?  # debugging
-          return file
+          return ftr
         end
       end
 
-      # fallback to brute force search, if desired
+      # fallback to brute force search
       #if search #or legacy
         #options[:legacy] = true
-        if file = search(path, options)
+        if ftr = find_any(path, options)
           $stderr.puts "  (6 brute search)" if monitor?  # debugging
-          return file
+          return ftr
         end
       #end
 
@@ -92,84 +94,156 @@ class Library
       nil
     end
 
-    # Brute force search looks through all libraries for a matching file.
+    #
+    # Brute force variation of `#find` looks through all libraries for a 
+    # matching features. This serves as the fallback method if `#find` comes
+    # up empty.
     #
     # @param [String] path
-    #   file path for which to search
+    #   path name for which to search
     #
-    # options: 
-    #   :select -
-    #   :suffix -
-    #   :legacy -
+    # @param [Hash] options
+    #   Search options.
     #
-    # Returns either
-    def search(path, options={})
-      matches = []
-
+    # @option options [Boolean] :latest
+    #   Search only the active or most current version of any library.
+    #
+    # @option options [Boolean] :suffix
+    #   Automatically try standard extensions if pathname has none.
+    #
+    # @option options [Boolean] :legacy
+    #   Do not match within library's +name+ directory, eg. `lib/foo/*`.
+    #
+    # @return [Feature,Array] Matching feature(s).
+    #
+    def find_any(path, options={})
       options = options.merge(:main=>true)
 
-      select  = options[:select]
-
-      #suffix  = options[:suffix] || options[:suffix].nil?
-      ##suffix = false if options[:load]
-      #suffix = false if Library::SUFFIXES.include?(::File.extname(path))
+      latest = options[:latest]
 
       # TODO: Perhaps the selected and unselected should be kept in separate lists?
       unselected, selected = *$LEDGER.partition{ |name, libs| Array === libs }
 
-      ## broad search of pre-selected libraries
+      # broad search of pre-selected libraries
       selected.each do |(name, lib)|
-        if file = lib.find(path, options)
-          next if Library.load_stack.last == file
-          return file unless select
-          matches << file
+        if ftr = lib.find(path, options)
+          next if Library.load_stack.last == ftr
+          return ftr
         end
       end
 
-      ## finally try a broad search on unselected libraries
+      # finally a broad search on unselected libraries
       unselected.each do |(name, libs)|
-        pos = []
+        libs = libs.sort
+        libs = [libs.first] if latest
         libs.each do |lib|
-          if file = lib.find(path, options)
-            pos << file
-          end
-        end
-        unless pos.empty?
-          latest = pos.sort{ |a,b| b.library.version <=> a.library.version }.first
-          return latest unless select
-          matches << latest
+          ftr = lib.find(path, options)
+          return ftr if ftr
         end
       end
 
-      # TODO: Should we be doing this?
-      # loadpath_search
-
-      select ? matches.uniq : matches.first
+      nil
     end
 
-    # Search Roll system for current or latest library files. This is useful
-    # for plugin loading.
     #
-    # This only searches activated libraries or the most recent version
-    # of any given library.
+    # Brute force search looks through all libraries for matching features.
+    # This is the same as #find_any, but returns a list of matches rather
+    # then the first matching feature found.
     #
-    def search_latest(match) #, options={})
+    # @param [String] path
+    #   path name for which to search
+    #
+    # @param [Hash] options
+    #   Search options.
+    #
+    # @option options [Boolean] :latest
+    #   Search only the active or most current version of any library.
+    #
+    # @option options [Boolean] :suffix
+    #   Automatically try standard extensions if pathname has none.
+    #
+    # @option options [Boolean] :legacy
+    #   Do not match within library's +name+ directory, eg. `lib/foo/*`.
+    #
+    # @return [Feature,Array] Matching feature(s).
+    #
+    def search(path, options={})
+      options = options.merge(:main=>true)
+
+      latest = options[:latest]
+
       matches = []
-      ledger.each do |name, lib|
-        lib = lib.sort.first if Array===lib
-        lib.loadpath.each do |path|
-          find = File.join(lib.location, path, match)
-          list = Dir.glob(find)
-          list = list.map{ |d| d.chomp('/') }
-          matches.concat(list)
+
+      # TODO: Perhaps the selected and unselected should be kept in separate lists?
+      unselected, selected = *$LEDGER.partition{ |name, libs| Array === libs }
+
+      # broad search of pre-selected libraries
+      selected.each do |(name, lib)|
+        if ftr = lib.find(path, options)
+          next if Library.load_stack.last == ftr
+          matches << ftr
         end
       end
+
+      # finally a broad search on unselected libraries
+      unselected.each do |(name, libs)|
+        libs = [libs.sort.first] if latest
+        libs.each do |lib|
+          ftr = lib.find(path, options)
+          matches << ftr if ftr
+        end
+      end
+
+      matches.uniq
+    end
+
+    #
+    # Search for all matching library files that match the given pattern.
+    # This could be of useful for plugin loader.
+    #
+    # @param [Hash] options
+    #   Glob matching options.
+    #
+    # @option options [Boolean] :latest
+    #   Search only activated libraries or the most recent version
+    #   of a given library.
+    #
+    # @return [Array] Matching file paths.
+    #
+    # @todo Should this return list of Feature objects instead of file paths?
+    #
+    def glob(match, options={})
+      latest = options[:latest]
+
+      matches = []
+
+      ledger.each do |name, libs|
+        case libs
+        when Array
+          libs = libs.sort
+          libs = [libs.first] if latest
+        else
+          libs = [libs]
+        end
+          
+        libs.each do |lib|
+          lib.loadpath.each do |path|
+            find = File.join(lib.location, path, match)
+            list = Dir.glob(find)
+            list = list.map{ |d| d.chomp('/') }
+            matches.concat(list)
+          end
+        end
+      end
+
       matches
     end
 
+    #
     # @deprecated
-    def find_files(match)
-      search_latest(match)
+    #
+    def find_files(match, options={})
+      glob(match, options)
     end
 
     #
@@ -246,7 +320,11 @@ class Library
     def load(pathname, options={}) #, &block)
       #options.merge!(block.call) if block
 
-      options[:wrap]   = true if options and !(Hash===options)
+      if !Hash === options
+        options = {}
+        options[:wrap] = options 
+      end
+
       options[:load]   = true
       options[:suffix] = false
       options[:local]  = false
