@@ -1,11 +1,11 @@
-cover 'library/ledger'
+covers 'library/ledger'
 
-test_case Library::Ledger do
+testcase Library::Ledger do
 
   method :add do
     test do
       ledger = Library::Ledger.new
-      ledger.add(File.direname(__FILE__) + '/fixture')
+      ledger.add(File.dirname(__FILE__) + '/fixture')
       ledger.assert.size == 1
     end
   end
@@ -13,10 +13,10 @@ test_case Library::Ledger do
   method :[] do
     test do
       ledger = Library::Ledger.new
-      ledger.add(File.direname(__FILE__) + '/fixture')
+      ledger.add(File.dirname(__FILE__) + '/fixture')
 
-      ledger[:foo].assert.is_a? Library
-      ledger['foo'].assert.is_a? Library
+      ledger[:foo].assert.is_a? Array
+      ledger['foo'].assert.is_a? Array
     end
   end
 

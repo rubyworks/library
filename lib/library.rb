@@ -540,14 +540,6 @@ class Library
   end
 
   module ::Kernel
-    class << self
-      alias __require__ require
-      alias __load__    load
-    end
-
-    alias __require__ require
-    alias __load__    load
-
     #
     # In which library is the current file participating?
     #

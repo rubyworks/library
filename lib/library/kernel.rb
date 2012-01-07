@@ -5,6 +5,14 @@ $RUBY_IGNORE_CALLERS << /#{__FILE__}/  # TODO: should this be more general, e.g.
 
 module ::Kernel
 
+  class << self
+    alias __require__ require
+    alias __load__    load
+  end
+
+  alias __require__ require
+  alias __load__    load
+
   #
   # Acquire feature - This is Roll's modern require/load method.
   # It differs from the usual `#require` or `#load` primarily by
