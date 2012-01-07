@@ -25,9 +25,9 @@
 Library objectifies the idea of a Ruby library. 
 
 Library makes it possible for developers to develop interdependent projects
-in real time, with installation phase, link configurations or endoring. 
+in real time, without installation phase, link configurations or vendoring. 
 It also makes it possible to create isolated library environments. Library 
-all does so efficiently too because only a single copy of any given version
+also does so efficiently because only a single copy of any given version
 of a library is needed on disc. And libraries can be stored anywhere. There
 is no special place they must all reside. Just add a new location to the
 library ledger and it's is available. And that includes the Gem home. Library
@@ -41,8 +41,8 @@ set management built ontop of the Library project.
 
 ### Using the API
 
-The basics of the Library API are fairly simple. Give a location on disc
-that house a Ruby library,
+The basics of the Library API are fairly simple. Given a location on disc
+that houses a Ruby library,
 
     mylib = Library.new('projects/hello')
 
@@ -55,7 +55,7 @@ Or look at information about the library.
     mylib.name     #=> 'hello'
     mylib.version  #=> '1.0.0'
 
-Thes above give you a one-off Library object. To have make it available 
+The above gives you a one-off Library object. To make the library available 
 by name we can use:
 
     Library.add(location)
@@ -64,7 +64,7 @@ or
 
     $LEDGER << location
 
-Both have the same exact effect. Our library will then  be avaliable via 
+Both have the same exact effect. Our library will then be available via 
 Library's various lookup methods. There are a few of these. One of these is
 the Kernel method `#library`.
 
@@ -106,11 +106,16 @@ shell console.
 
 ### Preparing your Projects
 
-For a project to be usable by Library it must conform to common organizational
-standards for a Ruby project. More importantly it must must have a `.ruby` file
-That is the bare minimum for a project to be loadable via Library. The only
-exception is for installed gems. If you point Library torwards a gem home,
-it will gather the necessary metadata from the gem's `.gemspec` file instead.
+For a project to be usable via Library it must conform to common organizational
+standards for a Ruby project. Most importantly it should have a `.ruby` file.
+It is highly recommend that a project have a `.ruby` file although Library can
+fallback to `.gemspec` if a `.ruby` file isn't found. But relying on a `.gemspec`
+of going to slow things down. Library can also handle installed gems. If you
+point Library torwards a gem home, it will gather the necessary metadata from
+the relative `specifications/*.gemspec` though again an available `.ruby` file
+in the project is going to improve performance.
+
+See http://dotruby.github.com/dotruby for more information about `.ruby` files.
 
 ### Autoload Caveat
 
