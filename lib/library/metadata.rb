@@ -30,7 +30,7 @@ class Library
       update(metadata)
 
       if @load
-        if @data.values_at('name', 'version', 'load_path').compact.size != 3
+        if not (@data['name'] && @data['version'] && @data['load_path'])
           load_metadata
         end
       else
@@ -136,7 +136,7 @@ class Library
     # Runtime and development requirements combined.
     #
     def requirements
-      @data[:requirements]
+      @data[:requirements] || (load_metadata; @data[:requirements])
     end
 
     #
@@ -207,29 +207,38 @@ class Library
     end
 
     #
-    # Returns a list of Library and/or [name, vers] entries.
-    # A Libray entry means the library was loaded, whereas the
-    # name/vers array means it failed. (TODO: Best way to do this?)
+    # Verify that a library's requirements are all available in the ledger.
+    # Returns a list of `[name, version]` of Libraries that were not found.
     #
-    # @todo Better name for this method?
-    # @todo Do not output to stdout here.
+    # @return [Array<String,String>] List of missing requirements.
     #
-    def verify_requirements(verbose=false)
+    def missing_requirements(development=false) #verbose=false)
       libs, fail = [], []
-      runtime_requirements.each do |(name, vers)|
+      reqs = development ? requirements : runtime_requirements
+      reqs.each do |req|
+        name = req['name']
+        vers = req['version']
         lib = Library[name, vers]
         if lib
           libs << lib
-          $stdout.puts "  [LOAD] #{name} #{vers}" if verbose
-          unless libs.include?(lib) or fail.include?(luib)
-            lib.requirements.verify(verbose)
+          #$stdout.puts "  [LOAD] #{name} #{vers}" if verbose
+          unless libs.include?(lib) or fail.include?([lib,vers])
+            lib.verify_requirements(development) #verbose)
           end
         else
           fail << [name, vers]
-          $stdout.puts "  [FAIL] #{name} #{vers}" if verbose
+          #$stdout.puts "  [FAIL] #{name} #{vers}" if verbose
         end
       end
-      return libs, fail
+      return fail
+    end
+
+    #
+    # Like {#missing_requirements} but returns `true`/`false`.
+    #
+    def missing_requirements?(development=false)
+      list = missing_requirements(development=false)
+      list.empty? ? false : true
     end
 
     #
@@ -247,12 +256,6 @@ class Library
         'omit'         => omit
       }
     end
-
-    #
-    #def merge!(data)
-    #  data['version'] = Version.new(data['version']) if data['version']
-    #  @data.merge!(data)
-    #end
 
   private
 
