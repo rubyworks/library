@@ -1,4 +1,4 @@
-= RUBY LIBARY
+# RUBY LIBARY
 
 <pre style="color:red">
 
@@ -16,11 +16,11 @@
 
 </pre>
 
-{home}[http://rubyworks.github.com/library] /
-{code}[http://github.com/rubyworks/library]
+[home](http://rubyworks.github.com/library) /
+[code](http://github.com/rubyworks/library)
 
 
-== DESCRIPTION
+## DESCRIPTION
 
 Library objectifies the idea of a Ruby library. 
 
@@ -37,65 +37,65 @@ Library servers as the foundation for the Roller gem, which provides library
 set management built ontop of the Library project.
 
 
-== USAGE
+## USAGE
 
-=== Using the API
+### Using the API
 
 The basics of the Library API are fairly simple. Give a location on disc
 that house a Ruby library,
 
-  mylib = Library.new('projects/hello')
+    mylib = Library.new('projects/hello')
 
 Now you can require or load files form that library.
 
-  mylib.require 'world'
+    mylib.require 'world'
 
 Or look at information about the library.
 
-  mylib.name     #=> 'hello'
-  mylib.version  #=> '1.0.0'
+    mylib.name     #=> 'hello'
+    mylib.version  #=> '1.0.0'
 
 Thes above give you a one-off Library object. To have make it available 
 by name we can use:
 
-  Library.add(location)
+    Library.add(location)
 
 or 
 
-  $LEDGER << location
+    $LEDGER << location
 
 Both have the same exact effect. Our library will then  be avaliable via 
 Library's various lookup methods. There are a few of these. One of these is
 the Kernel method `#library`.
 
-  library('hello')
+    library('hello')
 
 Another is `Library[]`.
 
-  Library['hello']
+    Library['hello']
 
 There are many other useful Library methods, see the API documentation
 for more details.
 
-=== Using RUBYPATH
+### Using RUBYPATH
 
 To use Library on a regular basis you can add the library paths you want to
 to the +RUBYPATH+ environment variable.
 
-  export RUBYPATH="~/workspace/ruby-projects"
+    export RUBYPATH="~/workspace/ruby-projects"
 
 Then add `-rubypath` to the RUBYOPT environment variable.
 
-  export RUBYOPT="-rubypath"
+    export RUBYOPT="-rubypath"
 
 You might already have `-rubygems` there, which is fine too.
 
-  export RUBYOPT="-rubypath -rubygems"
+    export RUBYOPT="-rubypath -rubygems"
 
 If you want access to project executables you will also need to append the
 project `bin` locations to the PATH envvironment variable.
 
-  export PATH="$PATH:$(ruby -e'Library::PATH()')"
+    export PATH="$PATH:$(ruby -e'Library::PATH()')"
 
 This will add the +bin+ locations of the programs encompassed by your
 current RUBYPATH environment.
@@ -104,7 +104,7 @@ Of course, you will probably want to add these lines to your startup `.bashrc`
 file (or equivalent) so they are ready to go every time you bring up your
 shell console.
 
-=== Preparing your Projects
+### Preparing your Projects
 
 For a project to be usable by Library it must conform to common organizational
 standards for a Ruby project. More importantly it must must have a `.ruby` file
@@ -112,7 +112,7 @@ That is the bare minimum for a project to be loadable via Library. The only
 exception is for installed gems. If you point Library torwards a gem home,
 it will gather the necessary metadata from the gem's `.gemspec` file instead.
 
-=== Autoload Caveat
+### Autoload Caveat
 
 Ruby has a "bug" which prevents `#autoload` from using custom `#require`
 methods. So `#autoload` calls cannot mkae use of the Library setup. 
@@ -120,55 +120,55 @@ This is not as signifficant as it might seem since `#autoload` is being
 deprecated as of Ruby 2.0. So it is best to discontinue it's use anyway.
 
 
-== LEARNING MORE
+## LEARNING MORE
 
 The above provides a brief overview of using the Library gem. But there is
 more to it. To get a deeper understanding of the system its fullest extent,
 please visit http://rubyworks.github.org/library.
 
 
-== INSTALLATION
+## INSTALLATION
 
-=== RubyGems Installation
+### RubyGems Installation
 
 We strongly recommend installing Roller manually b/c Roller is a
 peer to RubyGems. However, the last we tested it, Roller could
 be install via Gems as a means of trying it out --though you won't
 get the full benefits of the system.
 
-  gem install roll
+    $ gem install library
 
 If you like Roller, then later you can uninstall the gem and
 do a proper manual install.
 
 
-=== Manual Installation
+### Manual Installation
 
 Manual installation is recommended for regular usage, since it
 can then be loaded without going through RubyGems.
 
 First you need a copy of the tarball (or zip) archive. You will
-find them here[http://github.com/rubyworks/library/download].
+find them [here](http://github.com/rubyworks/library/download).
 You will of course need to unpack the file. For example,
 
-  $ tar -xvzf library-0.1.0
+    $ tar -xvzf library-0.1.0
 
 If you already have Ruby Setup installed on your system you can
 use it to install (See: http://rubyworks.github.com/setup). 
 
-  $ cd library-0.1.0
-  $ sudo setup.rb
+    $ cd library-0.1.0
+    $ sudo setup.rb
 
 Otherwise, the package includes a copy of Ruby Setup that you can
 use.
 
-  $ cd library-0.1.0
-  $ sudo script/setup.
+    $ cd library-0.1.0
+    $ sudo script/setup.
 
 On Windows, this last line will need to be 'ruby script/setup'.
 
 
-== COPYRIGHTS
+## COPYRIGHTS
 
 Ruby Library
 
