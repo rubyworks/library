@@ -62,20 +62,20 @@ Another is `#[]` class method.
 There are many other useful Library methods, see the API documentation
 for more details.
 
-### Using RUBYPATH
+### Using RUBYENV
 
 To use Library on a regular basis, add library paths to the `RUBYPATH`
 environment variable.
 
-    export RUBYPATH="~/workspace/ruby-projects"
+    export RUBYENV="~/workspace/ruby-projects"
 
-And add `-rubypath` to the RUBYOPT environment variable.
+And add `-rubyenv` to the RUBYOPT environment variable.
 
-    export RUBYOPT="-rubypath"
+    export RUBYOPT="-rubyenv"
 
 You might already have `-rubygems` there, which is fine too.
 
-    export RUBYOPT="-rubypath -rubygems"
+    export RUBYOPT="-rubyenv -rubygems"
 
 If you want access to project executables you will also need to append the
 project `bin` locations to the PATH environment variable.
@@ -83,22 +83,19 @@ project `bin` locations to the PATH environment variable.
     export PATH="$PATH:$(ruby -e'Library::PATH()')"
 
 This will add the `bin` locations of the programs encompassed by your
-current `RUBYPATH` environment.
+current `RUBYENV` setting.
 
 Of course, you will probably want to add these lines to your startup `.bashrc`
 file (or equivalent) so they are ready to go every time you bring up your
 shell console.
 
-### Preparing your Projects
+### Preping Projects
 
 For a project to be usable via Library it must conform to common organizational
-standards for a Ruby project. Most importantly it should have a `.ruby` file.
+conventions for a Ruby project. Most importantly it should have a `.ruby` file.
 It is highly recommend that a project have a `.ruby` file although Library can
 fallback to `.gemspec` if a `.ruby` file isn't found. But relying on a `.gemspec`
-of going to slow things down. Library can also handle installed gems. If you
-point Library towards a gem home, it will gather the necessary metadata from
-the relative `specifications/*.gemspec` though again an available `.ruby` file
-in the project is going to improve performance.
+of going to slow things down a bit.
 
 See http://dotruby.github.com/dotruby for more information about `.ruby` files.
 

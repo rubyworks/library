@@ -5,11 +5,24 @@ class Library
   module Domain
 
     #
-    # State of monitoring setting. This is used for debugging.
+    # Access to library ledger.
     #
-    def monitor?
-      ENV['monitor'] || $MONITOR
+    # @return [Array] The `$LEDGER` array.
+    #
+    def ledger
+      $LEDGER
     end
+
+    #
+    # Library names from ledger.
+    #
+    # @return [Array] The keys from `$LEDGER` array.
+    #
+    def names
+      $LEDGER.keys
+    end
+
+    alias_method :list, :names
 
     #
     # Find matching library features. This is the "mac daddy" method used by
@@ -17,81 +30,7 @@ class Library
     # the various libraries and their load paths.
     #
     def find(path, options={})
-      path   = path.to_s
-
-      #suffix = options[:suffix]
-      search = options[:search]
-      local  = options[:local]
-      from   = options[:from]
-
-      $stderr.print path if monitor?  # debugging
-
-      # absolute, home or current path
-      #
-      # NOTE: Ideally we would try to find a matching path among avaliable libraries
-      # so that the library can be activated, however this would probably add a 
-      # too much overhead and will by mostly a YAGNI, so we forgo any such
-      # functionality, at least for now. 
-      case path[0,1]
-      when '/', '~', '.'
-        $stderr.puts "  (absolute)" if monitor?  # debugging
-        return nil
-      end
-
-      # from explicit library
-      if from
-        lib = library(from)
-        ftr = lib.find(path, options)
-        raise LoadError, "no such file to load -- #{path}" unless file
-        $stderr.puts "  (direct)" if monitor?  # debugging
-        return ftr
-      end
-
-      # check the load stack (TODO: just last or all?)
-      if local
-        if last = $LOAD_STACK.last
-        #$LOAD_STACK.reverse_each do |feature|
-          lib = last.library
-          if ftr = lib.find(path, options)
-            unless $LOAD_STACK.include?(ftr)  # prevent recursive loading
-              $stderr.puts "  (2 stack)" if monitor?  # debugging
-              return ftr
-            end
-          end
-        end
-      end
-
-      name, fname = ::File.split_root(path)
-
-      # if the head of the path is the library
-      if fname
-        lib = Library[name]
-        if lib && ftr = lib.find(path, options) || lib.find(fname, options)
-          $stderr.puts "  (3 indirect)" if monitor?  # debugging
-          return ftr
-        end
-      end
-
-      # plain library name?
-      if !fname && lib = Library.instance(path)
-        if ftr = lib.default  # default feature to load
-          $stderr.puts "  (5 plain library name)" if monitor?  # debugging
-          return ftr
-        end
-      end
-
-      # fallback to brute force search
-      #if search #or legacy
-        #options[:legacy] = true
-        if ftr = find_any(path, options)
-          $stderr.puts "  (6 brute search)" if monitor?  # debugging
-          return ftr
-        end
-      #end
-
-      $stderr.puts "  (7 fallback)" if monitor?  # debugging
-
-      nil
+      $LEDGER.find_feature(path, options)
     end
 
     #
@@ -117,32 +56,7 @@ class Library
     # @return [Feature,Array] Matching feature(s).
     #
     def find_any(path, options={})
-      options = options.merge(:main=>true)
-
-      latest = options[:latest]
-
-      # TODO: Perhaps the selected and unselected should be kept in separate lists?
-      unselected, selected = *$LEDGER.partition{ |name, libs| Array === libs }
-
-      # broad search of pre-selected libraries
-      selected.each do |(name, lib)|
-        if ftr = lib.find(path, options)
-          next if Library.load_stack.last == ftr
-          return ftr
-        end
-      end
-
-      # finally a broad search on unselected libraries
-      unselected.each do |(name, libs)|
-        libs = libs.sort
-        libs = [libs.first] if latest
-        libs.each do |lib|
-          ftr = lib.find(path, options)
-          return ftr if ftr
-        end
-      end
-
-      nil
+      $LEDGER.find_any(path, options)
     end
 
     #
@@ -168,33 +82,7 @@ class Library
     # @return [Feature,Array] Matching feature(s).
     #
     def search(path, options={})
-      options = options.merge(:main=>true)
-
-      latest = options[:latest]
-
-      matches = []
-
-      # TODO: Perhaps the selected and unselected should be kept in separate lists?
-      unselected, selected = *$LEDGER.partition{ |name, libs| Array === libs }
-
-      # broad search of pre-selected libraries
-      selected.each do |(name, lib)|
-        if ftr = lib.find(path, options)
-          next if Library.load_stack.last == ftr
-          matches << ftr
-        end
-      end
-
-      # finally a broad search on unselected libraries
-      unselected.each do |(name, libs)|
-        libs = [libs.sort.first] if latest
-        libs.each do |lib|
-          ftr = lib.find(path, options)
-          matches << ftr if ftr
-        end
-      end
-
-      matches.uniq
+      $LEDGER.search(path, options)
     end
 
     #
@@ -213,30 +101,7 @@ class Library
     # @todo Should this return list of Feature objects instead of file paths?
     #
     def glob(match, options={})
-      latest = options[:latest]
-
-      matches = []
-
-      ledger.each do |name, libs|
-        case libs
-        when Array
-          libs = libs.sort
-          libs = [libs.first] if latest
-        else
-          libs = [libs]
-        end
-          
-        libs.each do |lib|
-          lib.loadpath.each do |path|
-            find = File.join(lib.location, path, match)
-            list = Dir.glob(find)
-            list = list.map{ |d| d.chomp('/') }
-            matches.concat(list)
-          end
-        end
-      end
-
-      matches
+      $LEDGER.glob(match, options)
     end
 
     #
@@ -245,26 +110,6 @@ class Library
     def find_files(match, options={})
       glob(match, options)
     end
-
-    #
-    # Access to library ledger.
-    #
-    # @return [Array] The `$LEDGER` array.
-    #
-    def ledger
-      $LEDGER
-    end
-
-    #
-    # Library names from ledger.
-    #
-    # @return [Array] The keys from `$LEDGER` array.
-    #
-    def names
-      $LEDGER.keys
-    end
-
-    alias_method :list, :names
 
     #
     # Access to global load stack.
@@ -374,13 +219,8 @@ class Library
     #
     # Load up the ledger with a given set of paths.
     #
-    def prime(paths)
-      require 'library/rubylib'
-
-      sub_prime(paths)
-
-      $LEDGER['ruby'] = RubyLibrary.new
-      $LEDGER
+    def prime(*paths)
+      $LEDGER.prime(*paths)
     end
 
     #
@@ -395,19 +235,6 @@ class Library
         path << lib.bindir if lib.bindir?
       end
       path.join(RbConfig.windows_platform? ? ';' : ':')
-    end
-
-  private
-
-    #
-    def sub_prime(paths)
-      paths.each do |path|
-        if File.exist?(File.join(path, '.ruby'))
-          $LEDGER << path
-        else
-          sub_prime(Dir[File.join(path, '*/')])
-        end
-      end
     end
 
   end

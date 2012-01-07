@@ -34,7 +34,7 @@ class Library
   # for the current platform to SUFFIXES.
 
   #
-  #
+  # Possible suffixes for feature files, that #require will try automatically.
   #
   SUFFIXES = ['.rb', '.rbw', '.so', '.bundle', '.dll', '.sl', '.jar'] #, '']
 
@@ -46,10 +46,10 @@ class Library
   #
   # A shortcut for #instance.
   #
-  # @return [Library] an instance of Library
+  # @return [Library,NilClass] The activated Library instance, or `nil` if not found.
   #
   def self.[](name, constraint=nil)
-    instance(name, constraint)
+    $LEDGER.activate(name, constraint) if $LEDGER.key?(name)
   end
 
   #
@@ -57,31 +57,12 @@ class Library
   # Libraries are singleton, so once loaded the same object is
   # always returned.
   #
+  # @todo This method might be deprecated.
+  #
+  # @return [Library,NilClass] The activated Library instance, or `nil` if not found.
+  #
   def self.instance(name, constraint=nil)
-    #raise "no library -- #{name}" unless include?(name)
-    return nil unless $LEDGER.key?(name)
-
-    library = $LEDGER[name]
-
-    if Library===library
-      if constraint # FIXME: it's okay if constraint fits current
-        raise Library::VersionConflict, library
-      end
-    else # library is an array of versions
-      if constraint
-        compare = Library::Version.constraint_lambda(constraint)
-        library = library.select{ |lib| compare[lib.version] }.max
-      else
-        library = library.max
-      end
-      unless library
-        raise VersionError, "no library version -- #{name} #{constraint}"
-      end
-      #index[name] = library #constrain(library)
-      library.activate
-    end
-
-    library
+    $LEDGER.activate(name, constraint) if $LEDGER.key?(name)
   end
 
   #
@@ -94,17 +75,14 @@ class Library
   # @param [String] constraint
   #   Valid version constraint.
   #
+  # @raise [LoadError]
+  #   If library not found.
+  #
   # @return [Library]
   #   The activated Library object.
   #
-  # @todo Should we also check $"? Eg. `return false if $".include?(path)`.
-  #
   def self.activate(name, constraint=nil) #:yield:
-    library = instance(name, constraint)
-    unless library
-      raise LoadError, "no library -- #{name}"
-    end
-    library.activate
+    library = $LEDGER.activate(name, constraint)
     yield(library) if block_given?
     library
   end
@@ -117,17 +95,11 @@ class Library
   # @return [Library] The new library.
   #
   def self.add(location)
-    #$LEDGER.add_location(location)
+    $LEDGER.add_location(location)
 
-    library = new(location)
-
-    entry = $LEDGER[library.name]
-
-    if Array === entry
-      entry << library unless entry.include?(library)
-    end
-
-    library
+    #library = new(location)
+    #$LEDGER.add_library(library)
+    #library
   end
 
   #
@@ -143,6 +115,8 @@ class Library
   #   Overriding matadata (to circumvent loading it from `.ruby` file).
   #
   def initialize(location, metadata={})
+    raise TypeError, "not a directory - #{location}" unless File.directory?(location)
+
     @location = location
     @active   = false
 
@@ -153,14 +127,13 @@ class Library
   end
 
   #
-  # Activate a library by putting it's loadpaths on the master $LOAD_PATH.
-  # This is neccessary only for the fact that autoload will not utilize
-  # customized require methods.
+  # Activate a library.
   #
   # @return [true,false] Has the library has been activated?
   #
   def activate
     return if @active
+
     vers = $LEDGER[name]
     if Library === vers
       raise VersionConflict.new(self, vers) if vers != self
@@ -304,12 +277,11 @@ class Library
     loadpath.map{ |lp| ::File.join(location, lp) }
   end
 
-# FIXME: dealing library requirements
-
   # Take runtime requirements and open them. This will help reveal any
   # version conflicts or missing dependencies.
   def verify
-    requirements.each do |(name, constraint)|
+    runtime_requirements.each do |req|
+      name, constraint = req['name'], req['version']
       Library.open(name, constraint)
     end
   end
@@ -317,7 +289,8 @@ class Library
   # Take all requirements and open it. This will help reveal any
   # version conflicts or missing dependencies.
   def verify_all
-    requirements.each do |(name, constraint)|
+    requirements.each do |req|
+      name, constraint = req['name'], req['version']
       Library.open(name, constraint)
     end
   end
