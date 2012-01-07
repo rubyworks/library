@@ -383,6 +383,20 @@ class Library
       $LEDGER
     end
 
+    #
+    # Go thru each library and make sure bin path is in path.
+    #
+    # @todo Should this be defined on Ledger?
+    #
+    def PATH()
+      path = []
+      list.each do |name|
+        lib = Library[name]
+        path << lib.bindir if lib.bindir?
+      end
+      path.join(RbConfig.windows_platform? ? ';' : ':')
+    end
+
   private
 
     #
