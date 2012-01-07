@@ -37,5 +37,5 @@ test/fixture/.ruby
 test/fixture/lib/foo.rb
 test/helper.rb
 HISTORY.rdoc
-README.rdoc
+README.md
 COPYING.rdoc

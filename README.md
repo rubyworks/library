@@ -1,20 +1,6 @@
-# RUBY LIBARY
+# RUBY LIBRARY
 
-<pre style="color:red">
-
-            AdP99CCGGG88888@A
-           AdPP99CCGGG888888@A
-          IIIPP999CCGG8888888@i
-          dIi   ,IICGGG8888888@
-          dCIIiciIICCGG8888888@
-  ________GCCIIIICCCGGG8888888@________________
-          GGCCCCCCCGGG88888888@.....
-          GGGGCCCGGGG888888888@.....
-          Y8GGGGGG888888888888@.....
-          Y8888888888888888888@.....
-          L8888888888888888888@.....
-
-</pre>
+<img src="" />
 
 [home](http://rubyworks.github.com/library) /
 [code](http://github.com/rubyworks/library)
@@ -22,19 +8,16 @@
 
 ## DESCRIPTION
 
-Library objectifies the idea of a Ruby library. 
+Library is, as its name implies, the objectification of the Ruby library.
+Along with the Library Ledger, which keeps an indexed list of available
+libraries, a variety of useful features are bestowed to Ruby developers.
 
-Library makes it possible for developers to develop interdependent projects
-in real time, without installation phase, link configurations or vendoring. 
-It also makes it possible to create isolated library environments. Library 
-also does so efficiently because only a single copy of any given version
-of a library is needed on disc. And libraries can be stored anywhere. There
-is no special place they must all reside. Just add a new location to the
-library ledger and it's is available. And that includes the Gem home. Library
-can serve gem installed libraries as easily as it serves development libraries.
-
-Library servers as the foundation for the Roller gem, which provides library
-set management built ontop of the Library project.
+* Work with libraries in an object-oriented manner.
+* Develop interdependent projects in real time without installing, linking or vendoring. 
+* Create isolated library environments based on project requirements.
+* Libraries can be stored anywhere. There is no special "home" path they must reside.
+* Serve gem installed libraries as easily as it serves developer's libraries.
+* Is the foundation of the Rolls gem, which provides a superset of library management functions.
 
 
 ## USAGE
@@ -42,11 +25,12 @@ set management built ontop of the Library project.
 ### Using the API
 
 The basics of the Library API are fairly simple. Given a location on disc
-that houses a Ruby library,
+that houses a Ruby library, e.g. `projects/hello`, a new Library instance
+can be created like any other object.
 
     mylib = Library.new('projects/hello')
 
-Now you can require or load files form that library.
+With a library object in hand, we can require or load files from that library.
 
     mylib.require 'world'
 
@@ -55,22 +39,23 @@ Or look at information about the library.
     mylib.name     #=> 'hello'
     mylib.version  #=> '1.0.0'
 
-The above gives you a one-off Library object. To make the library available 
-by name we can use:
+Crating a library object via`#new` gives us a one-off object. But to persist
+the library and make it available by name we can use `#add` instead.
 
-    Library.add(location)
+    Library.add('projects/hello')
 
-or 
+Or, delving down a bit deeper into the belly of system, one could simply
+feed the path to the master Ledger instance.
 
-    $LEDGER << location
+    $LEDGER << 'projects/hello'
 
 Both have the same exact effect. Our library will then be available via 
-Library's various lookup methods. There are a few of these. One of these is
+Library's various look-up methods. There are a few of these. One of these is
 the Kernel method `#library`.
 
     library('hello')
 
-Another is `Library[]`.
+Another is `#[]` class method.
 
     Library['hello']
 
@@ -79,12 +64,12 @@ for more details.
 
 ### Using RUBYPATH
 
-To use Library on a regular basis you can add the library paths you want to
-to the +RUBYPATH+ environment variable.
+To use Library on a regular basis, add library paths to the `RUBYPATH`
+environment variable.
 
     export RUBYPATH="~/workspace/ruby-projects"
 
-Then add `-rubypath` to the RUBYOPT environment variable.
+And add `-rubypath` to the RUBYOPT environment variable.
 
     export RUBYOPT="-rubypath"
 
@@ -93,12 +78,12 @@ You might already have `-rubygems` there, which is fine too.
     export RUBYOPT="-rubypath -rubygems"
 
 If you want access to project executables you will also need to append the
-project `bin` locations to the PATH envvironment variable.
+project `bin` locations to the PATH environment variable.
 
     export PATH="$PATH:$(ruby -e'Library::PATH()')"
 
-This will add the +bin+ locations of the programs encompassed by your
-current RUBYPATH environment.
+This will add the `bin` locations of the programs encompassed by your
+current `RUBYPATH` environment.
 
 Of course, you will probably want to add these lines to your startup `.bashrc`
 file (or equivalent) so they are ready to go every time you bring up your
@@ -111,7 +96,7 @@ standards for a Ruby project. Most importantly it should have a `.ruby` file.
 It is highly recommend that a project have a `.ruby` file although Library can
 fallback to `.gemspec` if a `.ruby` file isn't found. But relying on a `.gemspec`
 of going to slow things down. Library can also handle installed gems. If you
-point Library torwards a gem home, it will gather the necessary metadata from
+point Library towards a gem home, it will gather the necessary metadata from
 the relative `specifications/*.gemspec` though again an available `.ruby` file
 in the project is going to improve performance.
 
@@ -120,8 +105,8 @@ See http://dotruby.github.com/dotruby for more information about `.ruby` files.
 ### Autoload Caveat
 
 Ruby has a "bug" which prevents `#autoload` from using custom `#require`
-methods. So `#autoload` calls cannot mkae use of the Library setup. 
-This is not as signifficant as it might seem since `#autoload` is being
+methods. So `#autoload` calls cannot make use of the Library setup. 
+This is not as significant as it might seem since `#autoload` is being
 deprecated as of Ruby 2.0. So it is best to discontinue it's use anyway.
 
 
@@ -179,7 +164,7 @@ Ruby Library
 
 Copyright (c) 2006 Rubyworks
 
-Ruby Library is distributable in accordance with the *FreeBSD* license.
+Ruby Library is distributable in accordance with the **FreeBSD** license.
 
 See the COPYING.rdoc file details.
 
