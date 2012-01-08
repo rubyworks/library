@@ -12,61 +12,63 @@ require 'library'
 #
 class RubyLibrary < Library
 
-  #
-  # Arch directory relative to the ruby lib dir.
-  #
-  #ARCHPATH = ::RbConfig::CONFIG['archdir'].sub(::RbConfig::CONFIG['rubylibdir']+'/', '')
+  include ::RbConfig
 
   #
-  # Arch directory relative to the site_ruby lib dir.
+  # Setup Ruby library.
   #
-  #ARCHPATH = ::RbConfig::CONFIG['sitearchdir'].sub(::RbConfig::CONFIG['sitelibdir']+'/', '')
+  def initialize(*) #(location, metadata={})
+    #rubylibdir  = ::RbConfig::CONFIG['rubylibdir']
+    #rubyarchdir = ::RbConfig::CONFIG['archdir']
+    #rel_archdir  = rubyarchdir.sub(rubylibdir+'/', '')
+    #
+    #@location = rubylibdir
+    #@loadpath = ['', rel_archpath]
 
-  #
-  # Setup new Ruby library.
-  #
-  def initialize #(location, name=nil, options={})
-    rubylibdir  = ::RbConfig::CONFIG['rubylibdir']
-    sitelibdir  = ::RbConfig::CONFIG['sitelibdir']
+    location = find_base_path(CONFIG.values_at('rubylibdir', 'sitelibdir', 'vendorlibdir'))
+    loadpath = CONFIG.values_at(
+      'rubylibdir',
+      'archdir',
+      'sitelibdir',
+      'sitearchdir',
+      'vendorlibdir',
+      'vendorarchdir'
+    ).map{ |d| d.sub(@location+'/','') }
 
-    rubyarchdir = ::RbConfig::CONFIG['archdir']
-    sitearchdir = ::RbConfig::CONFIG['sitearchdir']
-
-    common = find_base_path([rubylibdir, sitelibdir])
-
-    @location = common
-    @loadpath = [sitelibdir, sitearchdir, rubylibdir, rubyarchdir].map{ |d| d.sub(common+'/','') }
-
+    @location = location
+    @loadpath = loadpath
     @name     = 'ruby'
-    @options  = {} #?
+    @metadata = {}  # TODO: can we fillout Ruby's metadata some ?
   end
 
   #
-  # Then name of the RubyLibrary is `ruby`.
+  # Then name of RubyLibrary is `ruby`.
   #
   def name
     'ruby'
   end
 
   #
-  # Ruby version.
+  # Ruby version is RUBY_VERSION.
   #
   def version
     RUBY_VERSION
   end
 
+  # TODO: Remove rugbygems from $LOAD_PATH and use that?
 
-  # TODO: 1.9+ need to remove rugbygems ?
+  # TODO: Sometimes people add paths directly to $LOAD_PATH,
+  #   should these be accessible via `ruby/`?
 
   #
-  #
+  # Load path is essentially $LOAD_PATH, less gem paths.
   #
   def loadpath
-    @loadpath ||= ['', ARCHPATH]
     #$LOAD_PATH - ['.']
-    #$LOAD_PATH - ['.']
-    #[], ].compact
+    @loadpath
   end
+
+  alias load_path loadpath
 
   #
   # Release date.
@@ -99,15 +101,14 @@ class RubyLibrary < Library
   end
 
   #
-  # Location of executable. This is alwasy bin/. This is a fixed
-  # convention, unlike lib/ which needs to be more flexable.
+  # Location of executables, which for Ruby is `RbConfig::CONFIG['bindir']`.
   #
   def bindir
-    File.join(location, 'bin')
+    ::RbConfig::CONFIG['bindir']
   end
 
   #
-  # Is there a <tt>bin/</tt> location?
+  # Is there a `bin/` location?
   #
   def bindir?
     File.exist?(bindir)
@@ -115,29 +116,29 @@ class RubyLibrary < Library
 
   #
   # Location of library system configuration files.
-  # This is alwasy the <tt>etc/</tt> directory.
+  # For Ruby this is `RbConfig::CONFIG['sysconfdir']`.
   #
   def confdir
-    File.join(location, 'etc')
+    ::RbConfig::CONFIG['sysconfdir']
   end
 
   #
-  # Is there a <tt>etc/</tt> location?
+  # Is there a "`etc`" location?
   #
   def confdir?
     File.exist?(confdir)
   end
 
   #
-  # Location of library shared data directory.
-  # This is always the <tt>data/</tt> directory.
+  # Location of library shared data directory. For Ruby this is
+  # `RbConfig::CONFIG['datadir']`.
   #
   def datadir
-    File.join(location, 'data')
+    ::RbConfig::CONFIG['datadir']
   end
 
   #
-  # Is there a <tt>data/</tt> location?
+  # Is there a `data/` location?
   #
   def datadir?
     File.exist?(datadir)
@@ -203,59 +204,3 @@ private
 
 end
 
-
-
-
-
-
-
-=begin
-# TODO: Can we merge RubySiteLibrary with RubyLibrary? If not the maybe rename RubyLibrary to RubyCoreLibrary.
-# We could unite them, but only if we set @location to whatever path rubylibdir and sitelibdir
-# have in common, which might not be much, i.e. `/usr/local`
-
-#
-class RubySiteLibrary < RubyLibrary
-
-  #
-  # New library.
-  #
-  def initialize #(location, name=nil, options={})
-    @location = ::RbConfig::CONFIG['sitelibdir']
-    @name     = 'site_ruby'
-    @options  = {} #?
-  end
-
-  #
-  #
-  #
-  def name
-    'site_ruby'
-  end
-
-  #
-  # Ruby version.
-  #
-  def version
-    RUBY_VERSION
-  end
-
-  #
-  # Arch directory relative to the site_ruby lib dir.
-  #
-  ARCHPATH = ::RbConfig::CONFIG['sitearchdir'].sub(::RbConfig::CONFIG['sitelibdir']+'/', '')
-
-  # TODO: 1.9+ need to remove rugbygems ?
-
-  #
-  #
-  #
-  def loadpath
-    @loadpath ||= ['', ARCHPATH]
-    #$LOAD_PATH - ['.']
-    #$LOAD_PATH - ['.']
-    #[], ].compact
-  end
-
-end
-=end
