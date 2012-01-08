@@ -1,6 +1,6 @@
 require 'library/core_ext'
 require 'library/ledger'
-require 'library/load_error'
+require 'library/errors'
 require 'library/metadata'
 require 'library/feature'
 require 'library/version'
@@ -120,9 +120,8 @@ class Library
     @location = location
     @metadata = Metadata.new(location, metadata)
 
-    # TODO: error type?
-    raise "Non-conforming library (missing name) -- `#{location}'" unless name
-    raise "Non-conforming library (missing version) -- `#{location}'" unless version
+    raise ValidationError, "Non-conforming library (missing name) -- `#{location}'" unless name
+    raise ValidationError, "Non-conforming library (missing version) -- `#{location}'" unless version
   end
 
   #
@@ -163,10 +162,6 @@ class Library
   def location
     @location
   end
-
-  # TODO: If Metadata only came from .ruby file then code could 
-  #       be much simplified. Or DotRuby::Spec could be used and gemspec
-  #       imported if dotruby-rubygems installed.
 
   #
   # Access to library metadata. Metadata is gathered from
@@ -241,8 +236,6 @@ class Library
     requirements.select{ |req| !req['development'] }
   end
 
-  # TODO: Not yet using omit.
-
   #
   # Omit library form ledger?
   #
@@ -297,9 +290,9 @@ class Library
   #   Automatically try standard extensions if pathname has none.
   #
   # @option options [Boolean] :legacy
-  #   Do not match within library's +name+ directory, eg. `lib/foo/*`.
+  #   (deprecated) Do not match within library's +name+ directory, eg. `lib/foo/*`.
   #
-  # @return [Feature,nil] The feature if found.
+  # @return [Feature,nil] The feature, if found.
   #
   def find(pathname, options={})
     main   = options[:main]
@@ -346,7 +339,11 @@ class Library
   end
 
   #
-  #
+  # What is `legacy_loadpath`? Well, library doesn't require you to put your
+  # library's scripts in a named lib path, e.g. `lib/foo/`. Instead one can
+  # just put them in `lib/` b/c Library keeps things indexed by honest to
+  # goodness library names. The `legacy_path` then is used to handle these
+  # old style paths along with the new.
   #
   def legacy_loadpath
     @legacy_loadpath ||= (
@@ -374,8 +371,7 @@ class Library
     if feature = find(pathname, options)
       feature.require(options)
     else
-      # TODO: silently?
-      raise LoadError.new(path, name)
+      raise LoadError.new(path, name)  # TODO: silently?
     end
   end
 
@@ -390,19 +386,6 @@ class Library
       raise LoadError.new(pathname, self.name)
     end
   end
-
-#  #
-#  def isolate(options={})
-#    if options[:all]
-#      list = Library.environments
-#    else
-#      list = [Library.environment]
-#    end
-#
-#    results = library.requirements.verify
-#
-#    fails, libs = results.partition{ |r| Array === r }
-#  end
 
   #
   # Inspect library instance.
@@ -511,7 +494,7 @@ class Library
       :name         => name,
       :version      => version.to_s,
       :loadpath     => loadpath,
-      :date         => date,
+      :date         => date.to_s,
       :requirements => requirements
     }
   end
