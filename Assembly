@@ -1,4 +1,7 @@
 ---
+gem:
+  active: true
+
 github:
   gh_pages: web
 

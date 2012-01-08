@@ -1,14 +1,12 @@
 = RELEASE HISTORY
 
-The Library gem is a spin-off the old `roll` gem, which has 
-now been split into two parts: this `library` gem and the new 
-`roller` gem. The Library class is at the heart of the Roll
-System, but is well defined enough to stand on it's own as
-a separate supporting project. By having it as a separate project
-it becomes easier to focus on it's essential functionality
-without having the implmentation distorted by the the broader
-Roll System.
+The Library gem is a spin-off of the Rolls gem. The Library class
+is at the heart of Rolls, but is well defined enough to stand on its
+own as a separate supporting package. By having it as a separate
+project it becomes easier to focus on it's essential functionality
+without having the implmentation distorted by the broader Roll System.
 
 Changes:
 
-* Initial spin-off and release.
+* Spin-off from Rolls and release.
+
