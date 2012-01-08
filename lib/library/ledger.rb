@@ -139,29 +139,69 @@ class Library
     #
     # Get a list of names of all libraries in the ledger.
     #
-    # @return [Array] list of library names
+    # @return [Array<String>] list of library names
     #
     def keys
       @table.keys
     end
 
     #
+    # Get a list of libraries and library version sets in the ledger.
+    #
+    # @return [Array<Library,Array>] 
+    #   List of libraries and library version sets.
+    #
     def values
       @table.values
     end
 
+    #
+    # Inspection string.
+    #
+    # @return [String] Inspection string.
     #
     def inspect
       @table.inspect
     end
 
     #
-    # Get an instance of a library by name, or name and version.
-    # Libraries are singleton, so once activated the same object is
-    # always returned.
+    # Limit versions of a library to the given constraint.
+    # Unlike `#activate` this does not reduce the possible versions
+    # to a single library, but only reduces the number of possibilites.
     #
-    # Activate a library. Same as #instance but will raise and error if the
-    # library is not found. This can also take a block to yield on the library.
+    # @param [String] name
+    #   Name of library.
+    #
+    # @param [String] constraint
+    #   Valid version constraint.
+    #
+    # @return [Array] List of conforming versions.
+    #
+    def constrain(name, contraint)
+      libraries = self[name]
+
+      return nil unless Array === libraries
+
+      vers = libraries.select do |library|
+        library.version.satisfy?(constraint)
+      end
+
+      self[name] = vers
+    end
+
+    #
+    # Activate a library, retrieving a Library instance by name, or name
+    # and version, and ensuring only that instance will be returned for
+    # all subsequent requests. Libraries are singleton, so once activated
+    # the same object is always returned.
+    #
+    # This method will raise a LoadError if the name is not found.
+    #
+    # Note that activating all runtime requirements of a library being
+    # activated was considered, but decided against. There's no reason
+    # to activatea library until it is actually needed. However this is
+    # not so when testing, or verifying available requirements, so other
+    # methods are provided such as `#activate_requirements`.
     #
     # @param [String] name
     #   Name of library.
@@ -174,22 +214,21 @@ class Library
     #
     # @todo Should we also check $"? Eg. `return false if $".include?(path)`.
     #
-    # @todo If constraint is given and library is already active don't raise
-    #   version conflict error if the current lib fits the constraint.
-    #
     def activate(name, constraint=nil)
       raise LoadError, "no such library -- #{name}" unless key?(name)
 
       library = self[name]
 
-      if Library===library
-        if constraint # FIXME: it's okay if constraint fits current
-          raise Library::VersionConflict, library
+      if Library === library
+        if constraint
+          unless library.version.satisfy?(constraint)
+            raise Library::VersionConflict, library
+          end
         end
       else # library is an array of versions
         if constraint
-          compare = Library::Version.constraint_lambda(constraint)
-          library = library.select{ |lib| compare[lib.version] }.max
+          verscon = Version::Constraint.parse(constraint)
+          library = library.select{ |lib| verscon.compare(lib.version) }.max
         else
           library = library.max
         end
@@ -198,8 +237,6 @@ class Library
         end
 
         self[name] = library #constrain(library)
-
-        library.activate!(self)  # library.instance_variable_set('@active', true)
       end
 
       library
@@ -447,7 +484,46 @@ class Library
       self
     end
 
+    #
+    #
+    #
+    def isolate(name, constraint=nil)
+      library = activate(name, constraint)
+
+      # TODO: shouldn't this be done in #activate ?
+      acivate_requirements(library)
+
+      unused = []
+      each do |name, libs|
+        ununsed << name if Array === libs
+      end
+      unused.each{ |name| @table.delete(name) }
+
+      self
+    end
+
   private
+
+    #
+    # Activate library requirements.
+    #
+    # @todo: checklist is used to prevent possible infinite recursion, but
+    #   it might be better to put a flag in Library instead.
+    #
+    def acivate_requirements(library, development=false, checklist={})
+      reqs = development ? library.requirements : library.runtime_requirements
+
+      checklist[library] = true
+
+      reqs.each do |req|
+        name = req['name']
+        vers = req['version']
+
+        library = activate(name, vers)
+
+        acivate_requirements(library, development, checklist) unless checklist[library]
+      end
+    end
 
     #
     # For each path given in `paths` make sure he needed metadata file

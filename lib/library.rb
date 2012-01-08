@@ -118,10 +118,9 @@ class Library
     raise TypeError, "not a directory - #{location}" unless File.directory?(location)
 
     @location = location
-    @active   = false
+    @metadata = Metadata.new(location, metadata)
 
-    @metadata = Metadata.new(@location, metadata)
-
+    # TODO: error type?
     raise "Non-conforming library (missing name) -- `#{location}'" unless name
     raise "Non-conforming library (missing version) -- `#{location}'" unless version
   end
@@ -132,11 +131,10 @@ class Library
   # @return [true,false] Has the library has been activated?
   #
   def activate
-    return if @active
+    current = $LEDGER[name]
 
-    vers = $LEDGER[name]
-    if Library === vers
-      raise VersionConflict.new(self, vers) if vers != self
+    if Library === current
+      raise VersionConflict.new(self, current) if current != self
     else
       ## NOTE: we are only doing this for the sake of autoload
       ## which does not honor a customized require method.
@@ -147,35 +145,24 @@ class Library
       #end
       $LEDGER[name] = self
     end
-    # TODO: activate runtime dependencies
+
+    # TODO: activate runtime requirements?
     #verify
-    @active = true
   end
 
-  #
-  # Set active flag to true.
-  #
-  def activate!(ledger)
-    vers = ledger[name]
-    raise VersionConflict.new(self, vers) if vers != self
-    @active = true
-  end
+  ##
+  ## Set active flag to true.
+  ##
+  #def activate!(ledger)
+  #  vers = ledger[name]
+  #  raise VersionConflict.new(self, vers) if vers != self
+  #  @active = true
+  #end
 
-=begin
-  # Constrain a library to a single version. This means, if anyone tries
-  # to use a different version once a library has been constrained, an
-  # VersionConflict error will be raised.
-  def constrain
-    cmp = $LEDGER[name]
-    if Array === cmp
-      $LEDGER[name] = self
-    else
-      if self.version != cmp.version
-        raise VersionError
-      end
-    end
+  #
+  def active?
+    $LEDGER[name] == self
   end
-=end
 
   #
   # Location of library files on disc.
@@ -243,7 +230,8 @@ class Library
   alias_method :released, :date
 
   #
-  # Library's requirements.
+  # Library's requirements. Note that in gemspec terminology these are
+  # called *dependencies*.
   #
   # @return [Array] list of requirements
   #
@@ -252,13 +240,12 @@ class Library
   end
 
   #
-  # Runtime requirements. Note that in gemspec terms these are called 
-  # dependencies.
+  # Runtime requirements.
   #
   # @return [Array] list of runtime requirements
   #
   def runtime_requirements
-    requirements.select{ |req| req.runtime? }
+    requirements.select{ |req| !req['development'] }
   end
 
   # TODO: Not yet using omit.
@@ -286,19 +273,16 @@ class Library
     loadpath.map{ |lp| ::File.join(location, lp) }
   end
 
-  # Take runtime requirements and open them. This will help reveal any
+  #
+  # Take requirements and open them. This will reveal any
   # version conflicts or missing dependencies.
-  def verify
-    runtime_requirements.each do |req|
-      name, constraint = req['name'], req['version']
-      Library.open(name, constraint)
-    end
-  end
-
-  # Take all requirements and open it. This will help reveal any
-  # version conflicts or missing dependencies.
-  def verify_all
-    requirements.each do |req|
+  #
+  # @param [Boolean] development
+  #   Include development dependencies?
+  #
+  def verify(development=false)
+    reqs = development ? requirements : runtime_requirements
+    reqs.each do |req|
       name, constraint = req['name'], req['version']
       Library.open(name, constraint)
     end

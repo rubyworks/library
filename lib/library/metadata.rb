@@ -42,7 +42,9 @@ class Library
     #
     #
     def update(data)
-      @data.update(data.rekey)
+      data = data.rekey
+
+      @data.update(data)
 
       self.name      = data[:name]      if data[:name]
       self.version   = data[:version]   if data[:version]
