@@ -38,6 +38,8 @@ class Library
     #
     # The loadpath within the library in which the feature resides.
     #
+    # @return [Array] Load path relative to library location.
+    #
     attr_reader :loadpath
 
     #
@@ -46,7 +48,7 @@ class Library
     attr_reader :filename
 
     #
-    #
+    # Extension of feature file, e.g. `.rb`.
     #
     attr_reader :extension
 
@@ -56,20 +58,20 @@ class Library
     # @return [String] name of the feature's library
     #
     def library_name
-      Library===library ? library.name : nil
+      Library === library ? library.name : nil
     end
 
     #
     #
     #
     def library_activate
-      library.activate if Library===library
+      library.activate if Library === library
     end
 
     #
     # Library location.
     #
-    # @return [Sting] location of library
+    # @return [String] location of library
     #
     def location
       Library===library ? library.location : library

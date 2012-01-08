@@ -150,15 +150,8 @@ class Library
     #verify
   end
 
-  ##
-  ## Set active flag to true.
-  ##
-  #def activate!(ledger)
-  #  vers = ledger[name]
-  #  raise VersionConflict.new(self, vers) if vers != self
-  #  @active = true
-  #end
-
+  #
+  # Is this library active in global ledger?
   #
   def active?
     $LEDGER[name] == self
@@ -256,7 +249,7 @@ class Library
   # @return [Boolean] if true, omit library from ledger
   #
   def omit
-    @omit
+    @metadata.omit
   end
 
   #

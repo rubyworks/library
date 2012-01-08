@@ -39,7 +39,10 @@ class Library
     end
 
     #
+    # Update metadata with data hash.
     #
+    # @param [Hash] data
+    #   Data to merge into metadata table.
     #
     def update(data)
       data = data.rekey
