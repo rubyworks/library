@@ -4,10 +4,10 @@
 lib/library/autoload.rb
 lib/library/core_ext.rb
 lib/library/domain.rb
+lib/library/errors.rb
 lib/library/feature.rb
 lib/library/kernel.rb
 lib/library/ledger.rb
-lib/library/load_error.rb
 lib/library/metadata.rb
 lib/library/rbconfig.rb
 lib/library/rubygems.rb
