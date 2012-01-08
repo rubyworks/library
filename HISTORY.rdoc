@@ -1,5 +1,7 @@
 = RELEASE HISTORY
 
+== 0.1.0 / 2012-01-08
+
 The Library gem is a spin-off of the Rolls gem. The Library class
 is at the heart of Rolls, but is well defined enough to stand on its
 own as a separate supporting package. By having it as a separate
