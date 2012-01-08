@@ -14,7 +14,7 @@ lib/library/rubygems.rb
 lib/library/rubylib.rb
 lib/library/version.rb
 lib/library.rb
-lib/ubypath.rb
+lib/ubyenv.rb
 qed/01_loading.rdoc
 qed/02_library.rdoc
 qed/03_ledger.rdoc
