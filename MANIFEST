@@ -14,14 +14,13 @@ lib/library/rubygems.rb
 lib/library/rubylib.rb
 lib/library/version.rb
 lib/library.rb
-lib/ubyenv.rb
+lib/ubylibs.rb
 qed/01_loading.rdoc
 qed/02_library.rdoc
 qed/03_ledger.rdoc
 qed/04_version.rdoc
 qed/applique/check.rb
 qed/applique/project.rb
-qed/applique/ubypath.rb
 qed/fixtures/foo/.ruby
 qed/fixtures/foo/lib/foo.rb
 qed/fixtures/tryme/1.0/.ruby

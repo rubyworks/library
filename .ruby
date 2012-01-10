@@ -54,4 +54,4 @@ name: library
 description: ! "The Library class encapsulates the essential nature \nof a Ruby library
   --a location on disk from which\nscripts can be required."
 organization: rubyworks
-date: '2012-01-08'
+date: '2012-01-10'
