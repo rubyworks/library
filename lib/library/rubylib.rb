@@ -33,7 +33,7 @@ class RubyLibrary < Library
       'sitearchdir',
       'vendorlibdir',
       'vendorarchdir'
-    ).map{ |d| d.sub(@location+'/','') }
+    ).map{ |d| d.sub(location + '/','') }
 
     @location = location
     @loadpath = loadpath
@@ -86,7 +86,7 @@ class RubyLibrary < Library
   #
   # Ruby requires nothing.
   #
-  def requires
+  def requirements
     []
   end
 
