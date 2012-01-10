@@ -114,10 +114,12 @@ class Library
     # @return [true,false] true if loaded, false if it already has been loaded.
     #
     def require(options={})
-      if library_name == 'ruby' or library_name == 'site_ruby'
+      if library_name == 'ruby' #or library_name == 'site_ruby'
         return false if $".include?(localname)  # ruby 1.8 does not use absolutes
         $" << localname # ruby 1.8 does not use absolutes
       end
+
+      # TODO: return false if $".include(fullname) ? But Ruby should be handling this.
 
       Library.load_stack << self #library
       begin
@@ -137,7 +139,7 @@ class Library
     # @return [true,false] true if loaded, false if it already has been loaded.
     #
     def load(options={})
-      if library_name == 'ruby' or library_name == 'site_ruby'
+      if library_name == 'ruby' #or library_name == 'site_ruby'
         $" << localname # ruby 1.8 does not use absolutes
       end
 
