@@ -518,7 +518,7 @@ class Library
     # @return [Ledger] The primed ledger.
     #
     def prime(*paths)
-      options = paths.pop if Hash === paths.last
+      options = Hash === paths.last ? paths.pop : {}
 
       paths = expound_paths(*paths) if options[:expound]
 
