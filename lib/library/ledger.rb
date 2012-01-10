@@ -112,6 +112,16 @@ class Library
     end
 
     #
+    #
+    #
+    def replace(table)
+      initialize
+      table.each do |name, value|
+        @table[name.to_s] = value
+      end
+    end
+
+    #
     # Iterate over each ledger entry.
     #
     def each(&block)
@@ -477,7 +487,13 @@ class Library
     def prime(*paths)
       require 'library/rubylib'
 
-      sub_prime(*paths)
+      paths.each do |path|
+        begin
+          add_location(path) if dotruby?(path)
+        rescue => err
+          $stderr.puts err.message if ENV['debug']
+        end
+      end
 
       add_library(RubyLibrary.new)
 
@@ -525,22 +541,27 @@ class Library
       end
     end
 
+#    #
+#    # For each path given in `paths` make sure the needed `.ruby` metadata file
+#    # is present and if so add the path to the ledger.
+#    #
+#    def sub_prime(*paths)
+#      paths.each do |path|
+#        if File.exist?(File.join(path, '.ruby'))
+#          add_location(path)
+#        #elsif Dir[File.join(path, '*.gemspec')].first
+#        #  add_location(path)
+#        else
+#          sub_prime(*Dir[File.join(path, '*/')])
+#        end
+#      end
+#    end
+
     #
-    # For each path given in `paths` make sure he needed metadata file
-    # is present (.ruby or .gemspec) and if so add the path to the ledger.
     #
-    # @todo Add a flag to enable/disable gemspec support.
     #
-    def sub_prime(*paths)
-      paths.each do |path|
-        if File.exist?(File.join(path, '.ruby'))
-          add_location(path)
-        elsif Dir[File.join(path, '*.gemspec')].first
-          add_location(path)
-        else
-          sub_prime(*Dir[File.join(path, '*/')])
-        end
-      end
+    def dotruby?(path)
+      File.file?(File.join(path, '.ruby'))
     end
 
   end
