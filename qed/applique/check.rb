@@ -1,5 +1,5 @@
-if ENV['RUBYOPT'].index('-rubypath') || ENV['RUBYOPT'].index('-roll')
-  abort "Remove -rubypath or -roll from RUBYOPT before running these tests." 
+if ENV['RUBYOPT'].index('-rubylibs') || ENV['RUBYOPT'].index('-roll')
+  abort "Remove -rubylibs or -roll from RUBYOPT before running these tests." 
 end
 
 # Make sure we use local version of files.
