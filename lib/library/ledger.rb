@@ -593,7 +593,7 @@ class Library
     # @todo Support gem home location.
     #
     def library_path?(path)
-      dotruby?(path)
+      dotruby?(path) || (ENV['RUBYLIBS_GEMSPEC'] && gemspec?(path))
     end
 
     # TODO: First recursively constrain the ledger, then activate. That way
@@ -627,6 +627,14 @@ class Library
     #
     def dotruby?(path)
       File.file?(File.join(path, '.ruby'))
+    end
+
+    #
+    # Does a path have a `.gemspec` file? This is fallback measure if a .ruby file is not found.
+    #
+    def gemspec?(path)
+      glob = File.file?(File.join(path, '{,*}.gemspec'))
+      Dir[glob].first
     end
 
   end
