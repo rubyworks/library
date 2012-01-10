@@ -128,15 +128,14 @@ please visit http://rubyworks.github.org/library.
 
 ### RubyGems Installation
 
-We strongly recommend installing Roller manually b/c Roller is a
-peer to RubyGems. However, the last we tested it, Roller could
-be install via Gems as a means of trying it out --though you won't
-get the full benefits of the system.
+We strongly recommend installing Library manually b/c Library is a
+peer to RubyGems. However, it has been tested and Library can be
+installed via RubyGems.
 
     $ gem install library
 
-If you like Roller, then later you can uninstall the gem and
-do a proper manual install.
+If you like Library, then later you can uninstall the gem and
+do a manual install via setup.rb.
 
 
 ### Manual Installation
@@ -146,7 +145,7 @@ can then be loaded without going through RubyGems.
 
 First you need a copy of the tarball (or zip) archive. You will
 find them [here](http://github.com/rubyworks/library/download).
-You will of course need to unpack the file. For example,
+You will the need to unpack the file. For example,
 
     $ tar -xvzf library-0.1.0
 
