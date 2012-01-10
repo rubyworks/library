@@ -141,10 +141,11 @@ class Library
 
       if feature = Library.find(pathname, options)
         #file.library_activate
-        $LOAD_CACHE[pathname] = file
+        $LOAD_CACHE[pathname] = feature
         return feature.acquire(options)
       end
 
+      # fallback to Ruby's own load mechinisms
       if options[:load]
         __load__(pathname, options[:wrap])
       else
