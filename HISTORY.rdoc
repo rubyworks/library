@@ -5,8 +5,7 @@
 The Library gem is a spin-off of the Rolls gem. The Library class
 is at the heart of Rolls, but is well defined enough to stand on its
 own as a separate supporting package. By having it as a separate
-project it becomes easier to focus on it's essential functionality
-without having the implmentation distorted by the broader Roll System.
+project it becomes easier to focus on it's essential functionality.
 
 Changes:
 
