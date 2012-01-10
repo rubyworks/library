@@ -481,27 +481,15 @@ class Library
     end
 
     #
-    # Load up the ledger with a given set of paths and add an instance of
-    # the special `RubyLibrary` class after that.
+    # Reduce the ledger to only those libraries the given library requires.
     #
-    def prime(*paths)
-      require 'library/rubylib'
-
-      paths.each do |path|
-        begin
-          add_location(path) if dotruby?(path)
-        rescue => err
-          $stderr.puts err.message if ENV['debug']
-        end
-      end
-
-      add_library(RubyLibrary.new)
-
-      self
-    end
-
+    # @param [String] name
+    #   The name of the primary library.
     #
+    # @param [String] constraint
+    #   The version constraint string.
     #
+    # @return [Ledger] The ledger.
     #
     def isolate(name, constraint=nil)
       library = activate(name, constraint)
@@ -518,7 +506,100 @@ class Library
       self
     end
 
+    #
+    # Load up the ledger with a given set of paths and add an instance of
+    # the special `RubyLibrary` class after that.
+    #
+    # @param [Array] paths
+    #
+    # @option paths [Boolean] :expound
+    #   Expound on path entires. See {#expound_paths}.
+    #
+    # @return [Ledger] The primed ledger.
+    #
+    def prime(*paths)
+      options = paths.pop if Hash === paths.last
+
+      paths = expound_paths(*paths) if options[:expound]
+
+      require 'library/rubylib'
+
+      paths.each do |path|
+        begin
+          add_location(path) if library_path?(path)
+        rescue => err
+          $stderr.puts err.message if ENV['debug']
+        end
+      end
+
+      add_library(RubyLibrary.new)
+
+      self
+    end
+
   private
+
+    #
+    # For flexible priming, this method can be used to recursively
+    # lookup library locations.
+    #
+    # If a given path is a file, it will considered a lookup "roll",
+    # such that each line entry in the file is considered another
+    # path to be expounded upon.
+    #
+    # If a given path is a directory, it will be returned if it
+    # is a valid Ruby library location, otherwise each subdirectory
+    # will be checked to see if it is a valid Ruby library location,
+    # and returned if so.
+    #
+    # If, on the other hand, a given path is a file glob pattern,
+    # the pattern will be expanded and those paths will expounded
+    # upon in turn.
+    #
+    def expound_paths(*entries)
+      paths = []
+
+      entries.each do |entry|
+        entry = entry.strip
+
+        next if entry.empty?
+        next if entry.start_with?('#')
+
+        if File.directory?(entry)
+          if library_path?(entry)
+            paths << entry
+          else
+            subpaths = Dir.glob(File.join(entry, '*/'))
+            subpaths.each do |subpath|
+              paths << subpath if library_path?(subpath)
+            end
+          end
+        elsif File.file?(entry)
+          paths.concat(expound_paths(*File.readlines(entry)))
+        else
+          glob_paths = Dir.glob(entry)
+          if glob_paths.first != entry
+            paths.concat(expound_paths(*glob_paths))
+          end
+        end
+      end
+
+      paths
+    end
+
+    #
+    # Is a directory a Ruby library?
+    #
+    # @todo Support gem home location.
+    #
+    def library_path?(path)
+      dotruby?(path)
+    end
+
+    # TODO: First recursively constrain the ledger, then activate. That way
+    # any missing libraries will cause an error. (hmmm... actually that's
+    # an imperfect way to resolve version dependencies). Ultimately we probably
+    # need a separate module to handle this.
 
     #
     # Activate library requirements.
@@ -541,24 +622,8 @@ class Library
       end
     end
 
-#    #
-#    # For each path given in `paths` make sure the needed `.ruby` metadata file
-#    # is present and if so add the path to the ledger.
-#    #
-#    def sub_prime(*paths)
-#      paths.each do |path|
-#        if File.exist?(File.join(path, '.ruby'))
-#          add_location(path)
-#        #elsif Dir[File.join(path, '*.gemspec')].first
-#        #  add_location(path)
-#        else
-#          sub_prime(*Dir[File.join(path, '*/')])
-#        end
-#      end
-#    end
-
     #
-    #
+    # Does the directory have a `.ruby` file?
     #
     def dotruby?(path)
       File.file?(File.join(path, '.ruby'))
