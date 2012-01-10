@@ -19,6 +19,11 @@ libraries, a variety of useful features are bestowed to Ruby developers.
 * Serve gem installed libraries as easily as it serves developer's libraries.
 * Is the foundation of the Rolls gem, which provides a superset of library management functions.
 
+IMPORTANT: Presently gem installed packages can only be served if a `.ruby` file
+is part of the gem package. This should be fixed in the next release. To work
+around the `dotruby` gem can be used to generate a `.ruby` file for installed
+gems.
+
 
 ## USAGE
 
@@ -62,20 +67,20 @@ Another is `#[]` class method.
 There are many other useful Library methods, see the API documentation
 for more details.
 
-### Using RUBYENV
+### Using RUBYLIBS
 
-To use Library on a regular basis, add library paths to the `RUBYPATH`
-environment variable.
+To use Library on a regular basis, add library paths to the `RUBYLIBS`
+environment variable. (NOTICE It is plural!!!)
 
-    export RUBYENV="~/workspace/ruby-projects"
+    export RUBYLIBS="~/workspace/ruby-projects"
 
-And add `-rubyenv` to the RUBYOPT environment variable.
+And add `-rubylibs` to the RUBYOPT environment variable.
 
-    export RUBYOPT="-rubyenv"
+    export RUBYOPT="-rubylibs"
 
 You might already have `-rubygems` there, which is fine too.
 
-    export RUBYOPT="-rubyenv -rubygems"
+    export RUBYOPT="-rubylibs -rubygems"
 
 If you want access to project executables you will also need to append the
 project `bin` locations to the PATH environment variable.
@@ -83,7 +88,7 @@ project `bin` locations to the PATH environment variable.
     export PATH="$PATH:$(ruby -e'Library::PATH()')"
 
 This will add the `bin` locations of the programs encompassed by your
-current `RUBYENV` setting.
+current `RUBYLIBS` setting.
 
 Of course, you will probably want to add these lines to your startup `.bashrc`
 file (or equivalent) so they are ready to go every time you bring up your
@@ -92,12 +97,17 @@ shell console.
 ### Preping Projects
 
 For a project to be usable via Library it must conform to common organizational
-conventions for a Ruby project. Most importantly it should have a `.ruby` file.
-It is highly recommend that a project have a `.ruby` file although Library can
-fallback to `.gemspec` if a `.ruby` file isn't found. But relying on a `.gemspec`
-of going to slow things down a bit.
+conventions for a Ruby project and it should have a `.ruby` file.
+
+It is highly recommend that a project have a `.ruby` file although a `.gemspec`
+file can serve as a fallback if a `.ruby` file isn't found. But relying on a
+`.gemspec` is going to slow things down a fair bit. It also requires that
+the `dotruby` library be installed.
+
+To activate .gemspec support set the environment variable `RUBYLIBS_GEMSPEC=true`.
 
 See http://dotruby.github.com/dotruby for more information about `.ruby` files.
+
 
 ### Autoload Caveat
 
