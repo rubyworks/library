@@ -1,6 +1,8 @@
 ---
+type: ruby
 source:
-- var
+- Indexfile
+- Gemfile
 authors:
 - name: trans
   email: transfire@gmail.com
