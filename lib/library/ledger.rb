@@ -15,7 +15,7 @@ class Library
     # State of monitoring setting. This is used for debugging.
     #
     def monitor?
-      ENV['monitor'] || $MONITOR
+      ENV['monitor'] || ($MONITOR ||= false)
     end
 
     #
@@ -40,6 +40,9 @@ class Library
       end
     end
 
+    #
+    # Alias for #add method.
+    #
     alias_method :<<, :add
 
     #
@@ -56,7 +59,11 @@ class Library
         if Array === entry
           entry << library unless entry.include?(library)
         else
-          # todo: what to do here?
+          # Library is already active so compare and make sure they are the
+          # same, otherwise warn. (Should this ever raise an error?)
+          if entry != library  # TODO: Is this the right equals comparison?
+            warn "Added library has already been activated."
+          end
         end
       rescue Exception => error
         warn error.message if ENV['debug']
@@ -71,13 +78,18 @@ class Library
     # @return [Library] Added library object.
     #
     def add_library(library)
+      raise TypeError unless Library === library
       #begin
-        raise TypeError unless Library === library
-
         entry = @table[library.name]
 
         if Array === entry
           entry << library unless entry.include?(library)
+        else
+          # Library is already active so compare and make sure they are the
+          # same, otherwise warn. (Should this ever raise an error?)
+          if entry != library  # TODO: Is this the right equals comparison?
+            warn "Added library has already been activated."
+          end
         end
       #rescue Exception => error
       #  warn error.message if ENV['debug']
@@ -209,7 +221,7 @@ class Library
     #
     # Note that activating all runtime requirements of a library being
     # activated was considered, but decided against. There's no reason
-    # to activatea library until it is actually needed. However this is
+    # to activate a library until it is actually needed. However this is
     # not so when testing, or verifying available requirements, so other
     # methods are provided such as `#activate_requirements`.
     #
@@ -270,22 +282,18 @@ class Library
       # absolute, home or current path
       #
       # NOTE: Ideally we would try to find a matching path among avaliable libraries
-      # so that the library can be activated, however this would probably add a 
-      # too much overhead and will by mostly a YAGNI, so we forgo any such
-      # functionality, at least for now. 
+      # so that the library can be activated, however this would probably add too
+      # much overhead and will by mostly a YAGNI, so we forgo this functionality, 
+      # at least for now. 
       case path[0,1]
       when '/', '~', '.'
         $stderr.puts "  (absolute)" if monitor?  # debugging
-        return nil
+        return nil  # fallback to Ruby's standard require
       end
 
       # from explicit library
       if from
-        lib = library(from)
-        ftr = lib.find(path, options)
-        raise LoadError, "no such file to load -- #{path}" unless file
-        $stderr.puts "  (direct)" if monitor?  # debugging
-        return ftr
+        return find_library_feature(from, path, options)
       end
 
       # check the load stack (TODO: just last or all?)
@@ -306,10 +314,14 @@ class Library
 
       # if the head of the path is the library
       if fname
-        lib = Library[name]
-        if lib && ftr = lib.find(path, options) || lib.find(fname, options)
-          $stderr.puts "  (3 indirect)" if monitor?  # debugging
-          return ftr
+        if name == 'ruby'  # part of the ruby hack
+          return find_library_feature('ruby', fname, options)
+        else
+          lib = Library[name]
+          if lib && ftr = lib.find(path, options) || lib.find(fname, options)
+            $stderr.puts "  (3 indirect)" if monitor?  # debugging
+           return ftr
+          end
         end
       end
 
@@ -333,6 +345,23 @@ class Library
       $stderr.puts "  (7 fallback)" if monitor?  # debugging
 
       nil
+    end
+
+    #
+    #
+    #
+    def find_library_feature(lib, path, options={})
+      case lib
+      when Library
+      when :ruby, 'ruby'
+        lib = RubyLibrary.singleton  # sort of a hack to let rubygems edge in
+      else                           # b/c if RubyLibary is in the regular ledger
+        lib = library(lib)           # then it prevents gems working for anything 
+      end                            # with the same name in ruby site locations.
+      ftr = lib.find(path, options)
+      raise LoadError, "no such file to load -- #{path}" unless ftr
+      $stderr.puts "  (direct)" if monitor?  # debugging
+      return ftr
     end
 
     #
@@ -522,7 +551,7 @@ class Library
 
       paths = expound_paths(*paths) if options[:expound]
 
-      require 'library/rubylib'
+      require 'library/rubylib'  # TODO: What's the reason rubylib.rb is loaded here?
 
       paths.each do |path|
         begin
@@ -532,7 +561,13 @@ class Library
         end
       end
 
-      add_library(RubyLibrary.new)
+      # We can not do this b/c it prevents gems from working
+      # when a file has the same name as something in the
+      # ruby lib or site locations. For example, if we intsll
+      # the test-unit gem and require `test/unit`. Of course,
+      # it Ruby ever adopted the "Rolls Way" then this could
+      # be restored.
+      #add_library(RubyLibrary.new)
 
       self
     end
@@ -593,7 +628,12 @@ class Library
     # @todo Support gem home location.
     #
     def library_path?(path)
-      dotruby?(path) || (ENV['RUBYLIBS_GEMSPEC'] && gemspec?(path))
+      #dotindex(path) || (ENV['RUBYLIBS_GEMSPEC'] && gemspec(path))
+      if ENV['RUBY_LIBRARY_NO_GEMS']
+        dotindex(path)
+      else
+        dotindex(path) || gemspec(path)
+      end
     end
 
     # TODO: First recursively constrain the ledger, then activate. That way
@@ -620,21 +660,55 @@ class Library
 
         acivate_requirements(library, development, checklist) unless checklist[library]
       end
+
+      self
     end
 
     #
-    # Does the directory have a `.ruby` file?
+    # If the directory has a `.index` file return it, otherwise +nil+.
     #
-    def dotruby?(path)
-      File.file?(File.join(path, '.ruby'))
+    def dotindex(path)
+      file = File.join(path, '.index')
+      File.file?(file) ? file : false
     end
 
+    alias :dotindex? :dotindex
+
+    # TODO: Would it be faster to determine gem?(path) if we just compared it to $GEM_PATH?
+    # If so, it might be faster, we could find the gemspec file from there. Right now this
+    # code is too redundant, and thus slower than need be.
+
     #
-    # Does a path have a `.gemspec` file? This is fallback measure if a .ruby file is not found.
+    # Does a path have a `.gemspec` file? This is fallback measure
+    # if a `.index` file is not found.
     #
-    def gemspec?(path)
+    def gemspec(path)
+      installed_gemspec(path) || local_gemspec(path)
+    end
+
+    alias :gemspec? :gemspec
+
+    #
+    # Does a path have a `.gemspec` file?
+    #
+    def local_gemspec(path)
       glob = File.file?(File.join(path, '{,*}.gemspec'))
       Dir[glob].first
+    end
+
+    #
+    # Determine if a path belongs to an installed gem. If so, it returns the
+    # path to the gemspec, otherwise +false+.
+    #
+    # @return [String, NilClass] Path to gemspec, or nil.
+    #
+    def installed_gemspec(path)
+      #return true if Dir[File.join(path, '*.gemspec')].first
+      pkgname = ::File.basename(path)
+      gemsdir = ::File.dirname(path)
+      specdir = ::File.join(File.dirname(gemsdir), 'specifications')
+      gemspec = ::File.join(specdir, "#{pkgname}.gemspec")
+      ::File.exist?(gemspec) ? gemspec : nil
     end
 
   end
