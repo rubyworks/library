@@ -81,6 +81,7 @@ class Library
     # Local load paths.
     #
     def loadpath
+      @data[:paths] ||= {}
       @data[:paths][:load] || ['lib']
     end
 
