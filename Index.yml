@@ -1,0 +1,36 @@
+---
+version: "0.1.0"
+
+name:
+  library
+
+title:
+  Library
+
+summary:
+  Objectifying the Ruby Library
+
+description:
+  The Library class encapsulates the essential nature 
+  of a Ruby library --a location on disk from which
+  scripts can be required.
+
+authors:
+  - Trans <transfire@gmail.com>
+
+resources:
+  home: http://rubyworks.github.com/library
+  code: http://github.com/rubyworks/library
+  mail: http://groups.google.com/groups/rubyworks-mailinglist
+
+repositories:
+  upstream: git://github.com/rubyworks/library.git
+
+organizations:
+  - Rubyworks (http://rubyworks.github.com/)
+
+copyrights:
+  - 2006 Rubyworks (BSD-2-Clause)
+
+created: "2006-12-10"
+
