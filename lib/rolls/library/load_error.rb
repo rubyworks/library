@@ -1,6 +1,7 @@
 class Library
 
-  # Library LoadError is a subclass of Ruby's standard LoadError class.
+  # Library::LoadError is a subclass of Ruby's standard LoadError class,
+  # modified slightly to provide better error messages.
   #
   class LoadError < ::LoadError
 
@@ -39,11 +40,6 @@ class Library
       bt = bt.reject{ |e| $RUBY_IGNORE_CALLERS.any?{ |re| re =~ e } } if bt
       set_backtrace(bt)
     end
-  end
-
-  # Library ValidationError is raised when library metadata is not conforming.
-  #
-  class ValidationError < ::RuntimeError
   end
 
 end

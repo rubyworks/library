@@ -14,41 +14,35 @@ requirements:
   - development
   - build
   version: ! '>= 0'
-  name: !binary |-
-    ZGV0cm9pdA==
+  name: detroit
 - groups:
   - development
   - build
-  version: !binary |-
-    Pj0gNS4w
-  name: !binary |-
-    c2V0dXA=
+  version: ! '>= 5.0'
+  name: setup
 - groups:
   - development
   - test
   version: ! '>= 0'
-  name: !binary |-
-    cnVieXRlc3Q=
+  name: rubytest
 - groups:
   - development
   - test
   version: ! '>= 0'
-  name: !binary |-
-    bGVtb24=
+  name: lemon
 - groups:
   - development
   - test
   version: ! '>= 0'
-  name: !binary |-
-    YWU=
+  name: ae
 conflicts: []
 alternatives: []
 resources:
 - type: home
-  uri: http://rubyworks.github.com/library
+  uri: http://rubyworks.github.com/rolls
   label: Homepage
 - type: code
-  uri: http://github.com/rubyworks/library
+  uri: http://github.com/rubyworks/rolls
   label: Source Code
 - type: mail
   uri: http://groups.google.com/groups/rubyworks-mailinglist
@@ -56,19 +50,21 @@ resources:
 repositories:
 - name: upstream
   scm: git
-  uri: git://github.com/rubyworks/library.git
+  uri: git://github.com/rubyworks/rolls.git
 categories: []
-load_path:
-- lib
+paths:
+  load:
+  - lib
 copyrights:
 - holder: Rubyworks
   year: '2006'
   license: BSD-2-Clause
-version: 0.1.0
-name: library
-title: Library
-summary: Objectifying the Ruby Library
-description: The Library class encapsulates the essential nature of a Ruby library
-  --a location on disk from which scripts can be required.
+version: 2.0.0
+name: rolls
+title: Rolls
+summary: Ruby Objectifed Library Ledgering System
+description: Rolls is library management system for Ruby. Rolls objectifies the concept
+  of a Ruby library and encapsualtes its essential nature as a location on disk from
+  which scripts can be required.
 created: '2006-12-10'
-date: '2012-12-09'
+date: '2012-12-28'

@@ -1,31 +1,14 @@
-require 'library/core_ext'
-require 'library/errors'
-require 'library/metadata'
-require 'library/feature'
-require 'library/version'
-require 'library/ledger'
-require 'library/domain'
-
 # Library class encapsulates a location on disc that contains a Ruby
 # project, with loadable features, of course.
 #
 class Library
+  require 'rolls/library/load_error'
+  require 'rolls/library/validation_error'
+  require 'rolls/library/ledgered'
+  require 'rolls/library/metadata'
+  require 'rolls/library/feature'
 
-  #
-  #
-  #
-  $LEDGER = Ledger.new
-
-  #
-  # When loading files, the current library doing the loading is pushed
-  # on this stack, and then popped-off when it is finished.
-  #
-  $LOAD_STACK = []
-
-  #
-  #
-  #
-  $LOAD_CACHE = {}
+  extend Ledgered
 
   #
   # Dynamic link extension.

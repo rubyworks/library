@@ -1,4 +1,7 @@
-source :rubygems
+#!/usr/bin/env ruby
+# encoding: utf-8
+
+source "http://rubygems.org"
 #gemspec
 
 group :development do

@@ -1,8 +1,9 @@
 class Library
 
-  # This extension encapsulates Library's class methods.
+  # This module simply extends the Library class, giving it certain
+  # convenience methods for interacting with the current Ledger.
   #
-  module Domain
+  module Ledgered
 
     #
     # Access to library ledger.
@@ -289,13 +290,6 @@ class Library
     end
 
     #
-    # Load up the ledger with a given set of paths.
-    #
-    def prime(*paths)
-      $LEDGER.prime(*paths)
-    end
-
-    #
     # Go thru each library and make sure bin path is in path.
     #
     # @todo Should this be defined on Ledger?
@@ -326,71 +320,6 @@ class Library
       FileUtils.rm(path_lock)
     end
 
-    #
-    # Library lock file.
-    #
-    def path_lock
-      File.expand_path("~/.ruby/#{ruby_version}.roll")
-    end
-
-    #
-    #
-    #
-    def ruby_version
-      ENV['RUBY'] || RUBY_VERSION
-    end
-
-    #
-    # Library list file.
-    #
-    def path_file
-      File.expand_path("~/.ruby/#{ruby_version}.path")
-      #File.expand_path('~/.ruby-path')
-    end
-
-    #
-    # TODO: Should the ~/.ruby_path file take precedence over the environment variable?
-    #
-    def path_list
-      if list = ENV['RUBY_PATH']
-        list.split(/[:;]/)
-      elsif File.exist?(path_file)
-        File.readlines(path_file).map{ |x| x.strip }.reject{ |x| x.empty? || x =~ /^\s*\#/ }
-      elsif ENV['GEM_PATH']
-        ENV['GEM_PATH'].split(/[:;]/).map{ |dir| File.join(dir, 'gems', '*') }
-      elsif ENV['GEM_HOME']
-        ENV['GEM_HOME'].split(/[:;]/).map{ |dir| File.join(dir, 'gems', '*') }
-      else
-        warn "No Ruby libraries."
-        []
-      end
-    end
-
-    #
-    #
-    #
-    def reset!
-      #$LEDGER = Ledger.new
-      $LOAD_STACK = []
-      $LOAD_CACHE = {}
-
-      if File.exist?(path_lock)
-        ledger = YAML.load_file(lock_file)
-        $LEDGER.replace(ledger)
-      else
-        list = path_list
-        Library.prime(*list, :expound=>true)
-      end
-    end
-
-    #
-    #
-    #
-    def bootstrap!
-      reset!
-      Kernel.require 'library/kernel'
-    end
-
   private
 
     #
@@ -407,5 +336,4 @@ class Library
 
   end
 
-  extend Domain
 end
