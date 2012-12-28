@@ -25,6 +25,65 @@ class Library
     alias_method :list, :names
 
     #
+    # A shortcut for #instance.
+    #
+    # @return [Library,NilClass] The activated Library instance, or `nil` if not found.
+    #
+    def [](name, constraint=nil)
+      $LEDGER.activate(name, constraint) if $LEDGER.key?(name)
+    end
+
+    #
+    # Get an instance of a library by name, or name and version.
+    # Libraries are singleton, so once loaded the same object is
+    # always returned.
+    #
+    # @todo This method might be deprecated.
+    #
+    # @return [Library,NilClass] The activated Library instance, or `nil` if not found.
+    #
+    def instance(name, constraint=nil)
+      $LEDGER.activate(name, constraint) if $LEDGER.key?(name)
+    end
+
+    #
+    # Activate a library. Same as #instance but will raise and error if the
+    # library is not found. This can also take a block to yield on the library.
+    #
+    # @param [String] name
+    #   Name of library.
+    #
+    # @param [String] constraint
+    #   Valid version constraint.
+    #
+    # @raise [LoadError]
+    #   If library not found.
+    #
+    # @return [Library]
+    #   The activated Library object.
+    #
+    def activate(name, constraint=nil) #:yield:
+      library = $LEDGER.activate(name, constraint)
+      yield(library) if block_given?
+      library
+    end
+
+    #
+    # Like `#new`, but adds library to library ledger.
+    #
+    # @todo Better name for this method?
+    #
+    # @return [Library] The new library.
+    #
+    def add(location)
+      $LEDGER.add_location(location)
+
+      #library = new(location)
+      #$LEDGER.add_library(library)
+      #library
+    end
+
+    #
     # Find matching library features. This is the "mac daddy" method used by
     # the #require and #load methods to find the specified +path+ among
     # the various libraries and their load paths.
@@ -131,26 +190,38 @@ class Library
     # @return [true,false] If feature was newly required or successfully loaded.
     #
     def require(pathname, options={})
-      if file = $LOAD_CACHE[pathname]
-        if options[:load]
-          return file.load
-        else
-          return false
+      #options_prior = ($LOAD_OPTIONS ||= {})
+      #$LOAD_OPTIONS = options
+      #$LOAD_OPTIONS[:legacy] = true if options_prior[:legacy]
+
+      #begin
+        if file = $LOAD_CACHE[pathname]
+          if options[:load]
+            return file.load
+          else
+            return false
+          end
         end
-      end
 
-      if feature = Library.find(pathname, options)
-        #file.library_activate
-        $LOAD_CACHE[pathname] = feature
-        return feature.acquire(options)
-      end
+        #unless $LOAD_OPTIONS[:legacy]
 
-      # fallback to Ruby's own load mechinisms
-      if options[:load]
-        __load__(pathname, options[:wrap])
-      else
-        __require__(pathname)
-      end
+        if feature = Library.find(pathname, options)
+          #file.library_activate
+          $LOAD_CACHE[pathname] = feature
+          return feature.acquire(options)
+        end
+
+        #end
+
+        # fallback to Ruby's own load mechinisms
+        if options[:load]
+          __load__(pathname, options[:wrap])
+        else
+          __require__(pathname)
+        end
+      #ensure
+      #  $LOAD_OPTIONS = options_prior
+      #end
     end
 
     #
@@ -166,7 +237,7 @@ class Library
     def load(pathname, options={}) #, &block)
       #options.merge!(block.call) if block
 
-      if !Hash === options
+      unless Hash === options
         options = {}
         options[:wrap] = options 
       end
@@ -235,7 +306,95 @@ class Library
         lib = Library[name]
         path << lib.bindir if lib.bindir?
       end
-      path.join(RbConfig.windows_platform? ? ';' : ':')
+      path.join(windows_platform? ? ';' : ':')
+    end
+
+    #
+    #
+    #
+    def lock
+      output = path_file + '.lock'
+      File.open(output, 'w+') do |f|
+        f << $LEDGER.to_yaml
+      end
+    end
+
+    #
+    # Remove lock file.
+    #
+    def unlock
+      FileUtils.rm(path_lock)
+    end
+
+    #
+    # Library lock file.
+    #
+    def path_lock
+      path_file + '.lock'
+    end
+
+    #
+    # Library list file.
+    #
+    def path_file
+      File.expand_path('~/.ruby-path')
+    end
+
+    #
+    # TODO: Should the ~/.ruby_path file take precedence over the environment variable?
+    #
+    def path_list
+      if list = ENV['RUBY_PATH']
+        list.split(/[:;]/)
+      elsif File.exist?(path_file)
+        File.readlines(path_file).map{ |x| x.strip }.reject{ |x| x.empty? || x =~ /^\s*\#/ }
+      elsif ENV['GEM_PATH']
+        ENV['GEM_PATH'].split(/[:;]/).map{ |dir| File.join(dir, 'gems', '*') }
+      elsif ENV['GEM_HOME']
+        ENV['GEM_HOME'].split(/[:;]/).map{ |dir| File.join(dir, 'gems', '*') }
+      else
+        warn "No Ruby libraries."
+        []
+      end
+    end
+
+    #
+    #
+    #
+    def reset!
+      #$LEDGER = Ledger.new
+      $LOAD_STACK = []
+      $LOAD_CACHE = {}
+
+      if File.exist?(path_lock)
+        ledger = YAML.load_file(lock_file)
+        $LEDGER.replace(ledger)
+      else
+        list = path_list
+        Library.prime(*list, :expound=>true)
+      end
+    end
+
+    #
+    #
+    #
+    def bootstrap!
+      reset!
+      Kernel.require 'library/kernel'
+    end
+
+  private
+
+    #
+    # TODO: Better definition of `RbConfig#windows_platform?`.
+    #
+    def windows_platform?
+      case RUBY_PLATFORM
+      when /mswin/, /wince/
+        true
+      else
+        false
+      end
     end
 
   end
