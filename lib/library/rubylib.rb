@@ -15,6 +15,11 @@ class RubyLibrary < Library
   include ::RbConfig
 
   #
+  def self.singleton
+    @r ||= new
+  end
+
+  #
   # Setup Ruby library.
   #
   def initialize(*) #(location, metadata={})
