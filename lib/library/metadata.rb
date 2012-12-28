@@ -1,7 +1,10 @@
 class Library
 
-  # The Metadata call encapsulates a library's information, in particular
-  # `name`, `version` and `load_path`.
+  #$DEBUG = true
+  require 'yaml'  # TODO: this should not be needed here
+
+  # The Metadata class encapsulates a library's basic information, in particular
+  # name, version and load path.
   #
   class Metadata
 
@@ -12,30 +15,23 @@ class Library
     #   Location of project on disc.
     #
     # @param [Hash] metadata
-    #   Manual metadata settings.
+    #   Set metadata manually, instead of loading from file.
     #
-    # @option metadata [Boolean] :load
-    #   Set to +false+ will prevent metadata being loaded
-    #   from .ruby or .gemspec file, but a LoadError will
-    #   be raised without `:name` and `:version`.
-    #
-    def initialize(location, metadata={})
+    def initialize(location, metadata=nil)
       @location  = location
 
-      @load = metadata.delete(:load)
-      @load = true if @load.nil?  # default is true
+      #@load = metadata.delete(:load)
+      #@load = true if @load.nil?  # default is true
 
       @data = {}
 
-      update(metadata)
-
-      if @load
-        if not (@data['name'] && @data['version'] && @data['load_path'])
-          load_metadata
-        end
+      if metadata && !metadata.empty?
+        update(metadata)
       else
-        raise LoadError unless data['name'] && data['version']   # todo: just name ?
+        load_metadata
       end
+
+      raise "#{location} has no name or version" unless @data[:name] && @data[:version]
     end
 
     #
@@ -47,13 +43,9 @@ class Library
     def update(data)
       data = data.rekey
 
-      @data.update(data)
-
-      self.name      = data[:name]      if data[:name]
-      self.version   = data[:version]   if data[:version]
-      self.load_path = data[:load_path] if data[:load_path]
-      self.date      = data[:date]      if data[:date]
-      self.omit      = data[:omit]
+      data.each do |key, value|
+        __send__("#{key}=", value) if respond_to?("#{key}=")
+      end
     end
 
     #
@@ -62,28 +54,53 @@ class Library
     attr :location
 
     #
-    # Local load paths.
+    # Paths, the only one used currently is `load`.
     #
-    def load_path
-      @data[:load_path] || ['lib']
+    def paths
+      @data[:paths]
     end
 
-    alias_method :loadpath, :load_path
+    #
+    # Set paths map.
+    #
+    # @param [Hash] paths
+    #   Paths map.
+    #
+    def paths=(paths)
+      @data[:paths] = (
+        h = {}
+        paths.each do |key, val|
+          val = (String === val ? split_path(val) : val)
+          h[key.to_sym] = Array(val)
+        end
+        h
+      )
+    end
 
     #
-    # Set the loadpath.
+    # Local load paths.
     #
-    def load_path=(path)
+    def loadpath
+      @data[:paths][:load] || ['lib']
+    end
+
+    alias_method :load_path, :loadpath
+
+    #
+    # Set the load paths.
+    #
+    def loadpath=(path)
       case path
       when nil
         path = ['lib']
       when String
-        path = path.strip.split(/[,;:\ \n\t]/).map{|s| s.strip}
+        path = split_path(path)
       end
-      @data[:load_path] = path
+      @data[:paths] ||= {}
+      @data[:paths][:load] = path
     end
 
-    alias_method :loadpath=, :load_path=
+    alias_method :load_path=, :loadpath=
 
     #
     # Name of library.
@@ -121,15 +138,15 @@ class Library
     # Release date.
     #
     def date
-      @data[:date] || (load_metadata; @data[:data])
+      @data[:date]
     end
 
     alias_method :released, :date
 
-    # TODO: Should we convert date to Time object?
-
     #
     # Set the date.
+    #
+    # TODO: Should we convert date to Time object?
     #
     def date=(date)
       @data[:date] = date
@@ -141,7 +158,14 @@ class Library
     # Runtime and development requirements combined.
     #
     def requirements
-      @data[:requirements] || (load_metadata; @data[:requirements])
+      @data[:requirements]
+    end
+
+    #
+    # Runtime and development requirements combined.
+    #
+    def requirements=(requirements)
+      @data[:requirements] = requirements
     end
 
     #
@@ -183,10 +207,10 @@ class Library
     end
 
     #
-    # Does this location have .ruby entries?
+    # Does this location have .index file?
     #
-    def dotruby?
-      @_dotruby ||= File.exist?(File.join(location, '.ruby'))
+    def dotindex?
+      @_dotindex ||= File.exist?(File.join(location, '.index'))
     end
 
     #
@@ -266,89 +290,74 @@ class Library
 
     # Load metadata.
     def load_metadata
-      return unless @load
-
-      if dotruby?
-        load_dotruby
+      if dotindex?
+        load_dotindex
       elsif gemspec?
         load_gemspec
       end
-
-      @load = false  # loading is complete
     end
 
-    # Load metadata for .ruby file.
-    def load_dotruby
-      require 'yaml'
-
-      data = YAML.load_file(File.join(location, '.ruby'))
-
+    #
+    # Load metadata for .index file.
+    #
+    def load_dotindex
+      file = File.join(location, '.index')
+      data = YAML.load_file(file)
       update(data)
-
-      #if Hash === data
-      #  self.name         = data['name']
-      #  self.version      = data['version']      #|| '0.0.0'
-      #  self.load_path    = data['load_path']    || ['lib']
-      #
-      #  self.title        = data['title']        || data['name'].capitalize
-      #  self.date         = data['date']
-      #
-      #  reqs = data['requirements'] || []
-      #  reqs.each do |req|
-      #    if req['development']
-      #      self.development_requirements << [req['name'], req['version']]
-      #    else
-      #      self.runtime_requirements << [req['name'], req['version']]
-      #    end
-      #  end
-      #end
     end
 
     # Load metadata from a gemspec. This is a fallback option. It is highly 
-    # recommended that a project have a `.ruby` file instead.
+    # recommended that a project have a `.index` file instead.
     #
-    # This method requires that the `dotruby` gem be installed.
+    # This method requires that the `metaspec` gem be installed.  # TODO: metaspec gem name ?
+    #
+    # TODO: Deprecate YAML form of gemspec, RubyGems no longer supports it.
     #
     def load_gemspec
-      #require 'rubygems'
-      require 'dotruby/rubygems'
-
       text = File.read(gemspec_file)
-      if text =~ /\A---/  # TODO: improve
+      if text =~ /\A---/  
         require 'yaml'
         spec = YAML.load(text)
       else
-        spec = eval(text)
+        spec = eval(text) #, gemspec_file)
       end
 
-      dotruby = DotRuby::Spec.parse_gemspec(spec)
+      data = {}
+      data[:name]    = spec.name
+      data[:version] = spec.version.to_s
+      data[:date]    = spec.date
 
-      data = dotruby.to_h
+      data[:paths] = {
+        'load' => spec.require_paths 
+      }
 
-      udpate(data)
+      data[:requirements] = []
 
-      return
+      spec.runtime_dependencies.each do |dep|
+        req = { 
+          'name'    => dep.name,
+          'version' => dep.requirement.to_s
+        }
+        data[:requirements] << req
+      end
 
-      #self.name         = spec.name
-      #self.version      = spec.version.to_s
-      #self.load_path    = spec.require_paths
-      #self.date         = spec.date
-      #self.title        = spec.name.capitalize  # for lack of better way
+      spec.development_dependencies.each do |dep|
+        req = { 
+          'name'        => dep.name,
+          'version'     => dep.requirement.to_s,
+          'development' => true
+        }
+        data[:requirements] << req
+      end
 
-      #spec.dependencies.each do |dep|
-      #  if dep.development?
-      #    self.development_requirements < [dep.name, dep.version]
-      #  else
-      #    self.runtime_requirements < [dep.name, dep.verison]
-      #  end
-      #end
+      update(data)
     end
 
     #
     # Returns the path to the .gemspec file.
     #
     def gemspec_file
-      gemspec_system_file || gemspec_local_file
+      gemspec_file_system || gemspec_file_local
     end
 
     #
@@ -370,6 +379,18 @@ class Library
         specdir = File.join(File.dirname(gemsdir), 'specifications')
         Dir[File.join(specdir, "#{pkgname}.gemspec")].first
       )
+    end
+
+    #
+    #def require_indexer
+    #  require 'rubygems'
+    #  require 'indexer'
+    #  require 'indexer/rubygems'
+    #end
+
+    #
+    def split_path(path)
+      path.strip.split(/[,;:\ \n\t]/).map{|s| s.strip}
     end
 
   end
