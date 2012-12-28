@@ -3,7 +3,7 @@ class Library
   # The Feature class represents a single file within a library.
   #
   # This class had been called `Script` until it occured to me that
-  # Ruby choose the name "feature" by it's use of tem in the global
+  # Ruby choose the name "feature" by it's use of them in the global
   # variable `$LOADED_FEATURES`.
   #
   class Feature
@@ -65,7 +65,10 @@ class Library
     #
     #
     def library_activate
-      library.activate if Library === library
+      if Library === library
+        library.activate
+        #Library.activate(library)
+      end
     end
 
     #

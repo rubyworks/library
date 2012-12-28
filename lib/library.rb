@@ -1,9 +1,9 @@
 require 'library/core_ext'
-require 'library/ledger'
 require 'library/errors'
 require 'library/metadata'
 require 'library/feature'
 require 'library/version'
+require 'library/ledger'
 require 'library/domain'
 
 # Library class encapsulates a location on disc that contains a Ruby
@@ -12,7 +12,7 @@ require 'library/domain'
 class Library
 
   #
-  # Library ledger.
+  #
   #
   $LEDGER = Ledger.new
 
@@ -27,7 +27,9 @@ class Library
   #
   $LOAD_CACHE = {}
 
+  #
   # Dynamic link extension.
+  #
   #DLEXT = '.' + ::RbConfig::CONFIG['DLEXT']
 
   # TODO: Some extensions are platform specific --only add the ones needed
@@ -44,65 +46,6 @@ class Library
   SUFFIX_PATTERN = "{#{SUFFIXES.join(',')}}"
 
   #
-  # A shortcut for #instance.
-  #
-  # @return [Library,NilClass] The activated Library instance, or `nil` if not found.
-  #
-  def self.[](name, constraint=nil)
-    $LEDGER.activate(name, constraint) if $LEDGER.key?(name)
-  end
-
-  #
-  # Get an instance of a library by name, or name and version.
-  # Libraries are singleton, so once loaded the same object is
-  # always returned.
-  #
-  # @todo This method might be deprecated.
-  #
-  # @return [Library,NilClass] The activated Library instance, or `nil` if not found.
-  #
-  def self.instance(name, constraint=nil)
-    $LEDGER.activate(name, constraint) if $LEDGER.key?(name)
-  end
-
-  #
-  # Activate a library. Same as #instance but will raise and error if the
-  # library is not found. This can also take a block to yield on the library.
-  #
-  # @param [String] name
-  #   Name of library.
-  #
-  # @param [String] constraint
-  #   Valid version constraint.
-  #
-  # @raise [LoadError]
-  #   If library not found.
-  #
-  # @return [Library]
-  #   The activated Library object.
-  #
-  def self.activate(name, constraint=nil) #:yield:
-    library = $LEDGER.activate(name, constraint)
-    yield(library) if block_given?
-    library
-  end
-
-  #
-  # Like `#new`, but adds library to library ledger.
-  #
-  # @todo Better name for this method?
-  #
-  # @return [Library] The new library.
-  #
-  def self.add(location)
-    $LEDGER.add_location(location)
-
-    #library = new(location)
-    #$LEDGER.add_library(library)
-    #library
-  end
-
-  #
   # New Library object.
   #
   # If data is given it must have `:name` and `:version`. It can
@@ -112,7 +55,7 @@ class Library
   #   Expanded file path to library's root directory.
   #
   # @param metadata [Hash]
-  #   Overriding matadata (to circumvent loading it from `.ruby` file).
+  #   Overriding matadata (to circumvent loading it from `.index` file).
   #
   def initialize(location, metadata={})
     raise TypeError, "not a directory - #{location}" unless File.directory?(location)
@@ -123,6 +66,9 @@ class Library
     raise ValidationError, "Non-conforming library (missing name) -- `#{location}'" unless name
     raise ValidationError, "Non-conforming library (missing version) -- `#{location}'" unless version
   end
+
+  # TODO: All instance method calling on $LEDGER should probably be moved the Ledger class
+  #       and called there. Looks like that would be #activate, #verify and #active? methods.
 
   #
   # Activate a library.
@@ -150,11 +96,27 @@ class Library
   end
 
   #
+  # Take requirements and activate them. This will reveal any
+  # version conflicts or missing dependencies.
+  #
+  # @param [Boolean] development
+  #   Include development dependencies?
+  #
+  def verify(development=false)
+    reqs = development ? requirements : runtime_requirements
+    reqs.each do |req|
+      name, constraint = req['name'], req['version']
+      Library.activate(name, constraint)
+    end
+  end
+
+  #
   # Is this library active in global ledger?
   #
   def active?
     $LEDGER[name] == self
   end
+
 
   #
   # Location of library files on disc.
@@ -165,7 +127,7 @@ class Library
 
   #
   # Access to library metadata. Metadata is gathered from
-  # the `.ruby` file or a `.gemspec` file.
+  # the `.index` file or a `.gemspec` file.
   #
   # @return [Metadata] metadata object
   #
@@ -257,21 +219,6 @@ class Library
   #
   def absolute_loadpath
     loadpath.map{ |lp| ::File.join(location, lp) }
-  end
-
-  #
-  # Take requirements and open them. This will reveal any
-  # version conflicts or missing dependencies.
-  #
-  # @param [Boolean] development
-  #   Include development dependencies?
-  #
-  def verify(development=false)
-    reqs = development ? requirements : runtime_requirements
-    reqs.each do |req|
-      name, constraint = req['name'], req['version']
-      Library.open(name, constraint)
-    end
   end
 
   #
