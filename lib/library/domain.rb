@@ -330,14 +330,22 @@ class Library
     # Library lock file.
     #
     def path_lock
-      path_file + '.lock'
+      File.expand_path("~/.ruby/#{ruby_version}.roll")
+    end
+
+    #
+    #
+    #
+    def ruby_version
+      ENV['RUBY'] || RUBY_VERSION
     end
 
     #
     # Library list file.
     #
     def path_file
-      File.expand_path('~/.ruby-path')
+      File.expand_path("~/.ruby/#{ruby_version}.path")
+      #File.expand_path('~/.ruby-path')
     end
 
     #
