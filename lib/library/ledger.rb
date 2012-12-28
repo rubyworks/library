@@ -692,7 +692,7 @@ class Library
     # Does a path have a `.gemspec` file?
     #
     def local_gemspec(path)
-      glob = File.file?(File.join(path, '{,*}.gemspec'))
+      glob = File.join(path, '{,*}.gemspec')
       Dir[glob].first
     end
 
