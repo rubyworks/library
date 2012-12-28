@@ -131,10 +131,10 @@ class Library
     #
     # "Spaceship" comparsion operator.
     #
-    # @param other [Library::Version, Array] 
+    # @param other [Library::Version, Array]
     #   a Library::Version or equvalent Array to compare
     #
-    # @return [Integer] 
+    # @return [Integer]
     #   `-1`, `0`, or `1` for less, equal or greater, respectively
     #
     def <=>(other)
@@ -210,6 +210,8 @@ class Library
 
     #
     # Does this version satisfy a given constraint?
+    #
+    # TODO: Support multiple constraints ?
     #
     def satisfy?(constraint)
       c = Constraint.parse(constraint)
@@ -336,8 +338,10 @@ class Library
       #
       def parse(constraint)
         case constraint
+        when Integer
+          op, val = "==", val.to_s
         when Array
-          op, num = constraint
+          op, val = constraint   # num?
         when /^(.*?)\~$/
           op, val = "=~", $1
         when /^(.*?)\+$/
