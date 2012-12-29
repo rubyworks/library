@@ -1,8 +1,10 @@
 [Homepage](http://rubyworks.github.com/rolls) /
+[Report Issue](http://github.com/rubyworks/rolls/issues)
 [Source Code](http://github.com/rubyworks/rolls)
+( )
 
 
-# RUBY ROLLER
+# Ruby Rolls
 
 <pre style="color:red">
                   ____
@@ -21,12 +23,28 @@
 </pre>
 
 
-## DESCRIPTION
+Rolls is a library management system for Ruby. In fact, the name is
+an anacronym which stands for *Ruby Objectified Library Ledger System*.
+Sounds neat, but what does Rolls actually do?
 
-Roller is a library manager for Ruby. With Roller developers can run their
-programs in real time --no install phase is required for one program
-to depend on another. This makes it very easy to work on a set of
-interdependent projects, without vendoring. It also makes easy to
+Rolls core functionality is to take a list of file system locations, sift
+through them to find conforming Ruby projects and makes them available via
+Ruby's `require` and `load` methods. It does this in such a way that is
+*highly customizable* and *very fast*.
+
+Along with some supporting functionality, this bestows a variety of useful
+possibilities to Ruby developers:
+
+* Work with libraries in an object-oriented manner.
+* Develop interdependent projects in real time without installs or vendoring. 
+* Create isolated library environments based on project requirements.
+* Nullify the need for per-project gemsets and multiple copies of the same gem.
+* Access libraries anywhere; there is no special "home" path they must reside.
+* Serve gem installed libraries faster than RubyGems itself.
+
+With Rolls developers can run their programs in real time --no install phase is
+required for one program to depend on another. This makes it very easy to work
+on a set of interdependent projects, without vendoring. It also makes easy to
 create isolated library environments. Yet Roller does so efficiently
 because there need only be a single copy of any given version of a library
 on disc. And libraries can be stored anywhere. There is no special place
@@ -35,66 +53,182 @@ includes your Gem home. Roller can serve gem installed libraries as easily
 as it serves development libraries.
 
 
-Library is, as its name implies, the objectification of the Ruby library.
-Along with the Library Ledger, which keeps an indexed list of available
-libraries, a variety of useful features are bestowed to Ruby developers.
+## Status
 
-* Work with libraries in an object-oriented manner.
-* Develop interdependent projects in real time without installing, linking or vendoring. 
-* Create isolated library environments based on project requirements.
-* Libraries can be stored anywhere. There is no special "home" path they must reside.
-* Serve gem installed libraries as easily as it serves developer's libraries.
-* Is the foundation of the Rolls gem, which provides a superset of library management functions.
-
-IMPORTANT: Presently gem installed packages can only be served if a `.ruby` file
-is part of the gem package. This should be fixed in the next release. To work
-around the `dotruby` gem can be used to generate a `.ruby` file for installed
-gems.
+Rolls works fairly well. The core system has been in use for years, 
+so on the whole the underlying functionality is in good working order.
+However, the system is still undergoing development, in particular, work
+on simplifying configuration and management, so some things are yet subject
+to change.
 
 
+## Limitations
+
+Ruby has a "bug" which prevents `#autoload` from using custom `#require`
+methods. So `#autoload` calls cannot make use of Rolls.  This is not as
+significant as it might seem since `#autoload` is being deprecated as
+of Ruby 2.0. So it is best to discontinue it's use anyway.
+
+
+## Installation
+
+### Manual Installation (Recommended)
+
+Manual installation is recommended for regular usage, since it
+can then be loaded without going through RubyGems.
+
+To install manually either clone the Git repository via:
+
+    $ git clone http://github.com/rubyworks/rolls.git
+
+Or download a copy of the project tarball or zip archive. You can
+find those [here](http://github.com/rubyworks/rolls/download).
+Of course, unpack the file once at hand.
+
+    $ wget http://github.com/rubyworks/library/download/rolls.tgz
+    $ tar -xvzf rolls.tgz
+
+If you already have Ruby Setup installed on your system you can
+use it to handle the install (See: http://rubyworks.github.com/setup). 
+
+    $ cd rolls
+    $ setup.rb
+
+Otherwise, the package includes a copy of Ruby Setup script that
+you can use instead.
+
+    $ cd rolls
+    $ ruby script/setup.rb
+
+Depending on your system setup you may need to use `sudo` on this
+last command in order to install to the typical `/usr/local/site_ruby`
+location.
+
+### RubyGems Installation
+
+We *strongly* recommend installing Rolls manually because Rolls is a
+peer to RubyGems. However, as a way to try Rolls out, it can be 
+installed via RubyGems.
+
+    $ gem install rolls
+
+If you like Rolls, then later you can uninstall the rolls gem and
+do a proper manual install via Setup.rb.
+
+
+## Instructions
+
+### System Setup
+
+First add the following line to your shell startup script, e.g. your
+`.bashrc` file.
+
+    . ~/.ruby-library.sh
+
+Then create the `~/.ruby-library.sh` script containing the following lines
+
+    export RUBYOPT="-rlibrary $RUBYOPT"
+    export PATH="$PATH:$(ruby -e'Library.setup')"
+
+The first line ensures that Rolls is loaded everytime Ruby is executed.
+If you have other entries in the RUBYOPT variable already it is best that
+the `-rolls` occur before the others.
+
+The second line ensure that that current *library ledger* is in sync with
+the current contents of managed locaations. It also returns a list of `bin/`
+directories for all those managed libraries. By appending this to the system's
+`PATH` variable, the executables of the libraries managed by Rolls are made
+available on the command line. 
+
+Note that this `PATH` approach to executables requires that the bin files have
+their executable bits turned on and have the proper header (i.e. `#!usr/bin/env ruby`).
+Also keep in mind that while this approach to handling bin paths works for most
+operating systems (i.e. Unix-based systems), other systems may need to use *binstubs*
+instead. But this feature that has not yet been implemented because current users have
+not needed it. It will be addressed in a future release.
+
+### Library Conformity
+
+For a library to be accessable to Rolls it must conform to the common organizational
+conventions generally used by all Ruby projects. In addition it is *best* to provide
+a `.index` file of `type: ruby`. A `.index` file is recommended because it make
+project metadata lookup faster and more convenient. A `.gemspec` file will work as
+a fallback if a `.index` file isn't found, but it can slow things down a little.
+See the [Indexer](http://rubyworks.github.com/indexer) project for more information
+about `.index` files.
+
+### Library Run Modes
+
+The library system can operate in different *run modes*. The "production"
+or "locked" mode is the default. This mode will always utilize a locked list
+of avaialble libraries. This means that whenever configuration changes, 
+e.g. `$RUBY_LIBRARY` is modified, or when `$GEM_PATH` is in `$RUBY_LIBRARY` and
+a new library has been installed via `gem install`, then the locked list must
+be resynced. If you setup your system as instructed above, this can be done
+by rerunning the ~/.ruby-library.sh script.
+
+    $ . ~/.ruby-library.sh
+
+Continually having to resync can be inconvenient is some situations, to get
+around this you can set the `$RUBY_LIBRARY_MODE` variable to "live" mode.
+
+    $ export RUBY_LIBRARY_MODE="live"
+
+In this mode the library ledger will be reconstructed each time Ruby runs.
+This mode is *much slower* than locked mode. It also does not suffice if the
+`PATH` environment variable needs to be updated. In that case, you must
+still resync the ledger.
+
+### Library Locations
+
+By default Rolls will serve up the `$GEM_PATH` locations. For most users,
+that is all that is needed and this section of instruction can be skipped.
+
+Yet Rolls is very flexible and can be configured in any number of manners
+to serve up Ruby libraries. This is done by changing the locations that
+libraries are found via the `$RUBY_LIBRARY` environment variable.
+
+For example, lets say a developer wants to ensure that a current project's
+vendor location is always prepended to the library lookup to ensure the use
+of any modified dependencies.
+
+    $ export RUBY_LIBRARY="./vendor:$GEM_PATH"
+
+Now any submodules in a project's `vendor/` directory will be accessible
+via `require` and `load` (when run from the root of the project, of course).
+Note, this configuration only makes sense whe using *live* mode (see below).
+
+When using a Ruby version manager, and modifying the `$RUBY_LIBRARY` 
+environment variable for more general purposes, say for instance you want
+to serve up a special set of Ruby projects that you simply "install" via a
+git checkout, you may want to differentiate sets of libraries based on your
+current Ruby. For example, with [chruby](http://github.com/postmodern/chruby),
+you could do something like:
+
+    $ export RUBY_LIBRARY="~/.ruby-gits/$RUBY_VERSION/:$GEM_PATH"
+
+That way, when you change your current Ruby, you also change which libraries
+that are available. In most cases this is not important, but if the library has
+any C extensions which must be compiled, then it may be vital to make this 
+differentiation.
+
+These are just some possible examples of how an advanced developer might choose
+to configure Rolls. How you choose to do so will likely vary. If you come up
+with any great general practices, be sure to let us know!
+
+### Library Isolation
+
+Developers often need to isolate a project's libary dependencies, both to ensure
+best version resolution of those dependencies, and to isolate the project from
+any malformed libraries that erroneously clobber lib paths of another project 
+(yes, sadly this can happen). Rolls makes this easy to handle:
 
 
 
-
-## STATUS
-
-Roller works fairly well. I have used it for development for years, so
-on the whole it stays in working order. However it is still under
-development, so configuration is still subject to a fair bit of change.
-The loading heuristics are quite advanced, which accounts for the speed,
-but as a trade-off the loading procedure is more complex.
-
-
-## INSTRUCTION
-
-### Setting Up
-
-To use roll regularly you first need to add it your RUBYOPT environment
-variable.
-
-    $ export RUBYOPT="-roll"
-
-If you want to use RubyGems as a fallback, this can be done too:
-
-    $ export RUBYOPT="-roll -rubygems"
-
-The alternative to this is to add your gem locations to your roll
-environment (see below).
-
-To support executables you will also need to add a line to your startup
-.bashrc (or equivalent) file.
-
-    export PATH="$PATH:$(roll path)"
-
-This will add the +bin+ locations of the programs encompassed by your
-current roll environment.
-
-(NOTE: The way bin paths are handled might change to a symlink directory
-in the future if limitations of long environment variables prove problematic.
-So far I have not had any issues with the PATH approach.)
 
 ### Using the API
 
+Rolls objectifies ... which is natuarlly called the Library class.
 The basics of the Library API are fairly simple. Given a location on disc
 that houses a Ruby library, e.g. `projects/hello`, a new Library instance
 can be created like any other object.
@@ -133,176 +267,18 @@ Another is `#[]` class method.
 There are many other useful Library methods, see the API documentation
 for more details.
 
-### Using RUBYLIBS
-
-To use Library on a regular basis, add library paths to the `RUBYLIBS`
-environment variable. (NOTICE It is plural!!!)
-
-    export RUBYLIBS="~/workspace/ruby-projects"
-
-And add `-rubylibs` to the RUBYOPT environment variable.
-
-    export RUBYOPT="-rubylibs"
-
-You might already have `-rubygems` there, which is fine too.
-
-    export RUBYOPT="-rubylibs -rubygems"
-
-If you want access to project executables you will also need to append the
-project `bin` locations to the PATH environment variable.
-
-    export PATH="$PATH:$(ruby -e'Library::PATH()')"
-
-This will add the `bin` locations of the programs encompassed by your
-current `RUBYLIBS` setting.
-
-Of course, you will probably want to add these lines to your startup `.bashrc`
-file (or equivalent) so they are ready to go every time you bring up your
-shell console.
-
-### Preping Projects
-
-For a project to be usable via Library it must conform to common organizational
-conventions for a Ruby project and it should have a `.ruby` file.
-
-It is highly recommend that a project have a `.ruby` file although a `.gemspec`
-file can serve as a fallback if a `.ruby` file isn't found. But relying on a
-`.gemspec` is going to slow things down a fair bit. It also requires that
-the `dotruby` library be installed.
-
-To activate .gemspec support set the environment variable `RUBYLIBS_GEMSPEC=true`.
-
-See http://dotruby.github.com/dotruby for more information about `.ruby` files.
-
-### Preparing Projects
-
-For a project to be detected by Roller it must conform to a
-minimal POM[http://proutils.github.com/pom] setup. Specifically,
-the project must have <code>.meta/</code> file with `type: ruby`.
-That is the bare minimum for a project to be loadable via Roller.
-The only exception is for installed gems. If you point Roller torwards
-a gem home, Roller will gather the necessary metadata from the gem's
-.gemspec file instead.
-
-See Meta[http://wiki.github.com/rubyworks/meta] for more information about
-the <code>.meta/</code> file.
-
-### Library Management
-
-Next you need to setup an roll *environment*. The default environment
-is called +production+. You can add a library search location to it
-using +roll in+. Eg.
-
-    $ roll in /opt/ruby/
-
-As a developer you will may want to setup a +development+ environment.
-To change or add an environment use the +use+ command.
-
-    $ roll use development
-
-Then you can add the paths you want. For instance my development
-environment is essentially constructed like this:
-
-    $ roll in ~/programs/proutils
-    $ roll in ~/programs/rubyworks
-    $ roll in ~/programs/trans
-
-By default these paths will be searched for POM conforming projects
-up to a depth of three sub-directories. That's suitable for
-most needs. You can specify the the depth explicitly with the 
-<tt>--depth</tt> or <tt>-d</tt> option. You can roll in the 
-current working directory by leaving off the path argument. 
-If the current directory has a +.ruby+ directory, a depth of +1+
-will automatically be used.
-
-In the same way you can add gem locations to you roll environment.
-For instance on my system:
-
-    $ sudo roll in /usr/lib/ruby/gems/1.8/gems
-
-Note the use of +sudo+ here. Roller will create <code>.ruby/</coide>
-entries automatically in each gem if not already present. Since these
-are system-wide gems +sudo+ is needed to give rolls write access.
-This is only necessary the first time any new gem is rolled in.
-
-If a rolled in location changes --say you start a new project, or
-install a new gem, you can resync you roll index via the +sync+ command.
-
-    $ roll sync
-
-Resyncing is only needed when a new project is added to an enironments
-lookup locations, or if one of the already included projects change
-the `name` or `load_path` in the `.meta` file. To clarify, take a look at the
-+show+ command.
-
-    $ roll show --index
-
-The +use+ command stores the current environment name until the
-end of the bash session. To set it perminently, adjust the RUBYENV
-environment variable or write the fallback default in the 
-<code>$HOME/.config/roll/default</code> file.
-
-For see the rest of the +roll+ commands, use <code>roll help</code>.
-
-Now you are *read to roll*! 
-
-### Autoload Caveat
-
-Ruby has a "bug" which prevents `#autoload` from using custom `#require`
-methods. So `#autoload` calls cannot make use of Rolls.  This is not as
-significant as it might seem since `#autoload` is being deprecated as
-of Ruby 2.0. So it is best to discontinue it's use anyway.
+Now you are *ready to roll*! 
 
 
-## LEARNING MORE
+## Documentation
 
 The above provides a brief overview of using Rolls. But there is more to
 it. To get a deeper understanding of the system and how to use +roll+ to
 its fullest extent visit http://rubyworks.github.org/rolls.
 
 
-## INSTALLATION
 
-### RubyGems Installation
-
-We strongly recommend installing Rolls manually because Rolls is
-a peer to RubyGems. However, the last we tested it, Rolls can
-be install via RubyGems as a means of trying it out, though you
-will not get the full benefits of the system.
-
-    $ gem install rolls
-
-If you like Rolls, then later you can uninstall the gem and
-do a proper manual install via Setup.rb.
-
-
-### Manual Installation (Recommended)
-
-Manual installation is recommended for regular usage, since it
-can then be loaded without going through RubyGems.
-
-First you need a copy of the tarball (or zip) archive. You will
-find them [here](http://github.com/rubyworks/library/download).
-You will the need to unpack the file. For example,
-
-    $ tar -xvzf rolls-2.0.0
-
-If you already have Ruby Setup installed on your system you can
-use it to install (See: http://rubyworks.github.com/setup). 
-
-    $ cd rolls-2.0.0
-    $ setup.rb
-
-Otherwise, the package includes a copy of Ruby Setup that you can
-use.
-
-    $ cd rolls-2.0.0
-    $ script/setup.
-
-On Windows, this last line will need to be 'ruby script/setup'.
-
-
-## BY THE WAY
+## FAQ
 
 Roller was RubyForge project #1004. She's been around a while! ;)
 
