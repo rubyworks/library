@@ -4,7 +4,7 @@
 [Source Code](http://github.com/rubyworks/library)
 ( )
 
-# RUBY LIBRARY
+# [Ruby Library](#description)
 
 Library is library management system for Ruby. More specifically, it is a
 reformulation and partial-reimplementation of Ruby's load system. At it's 
@@ -23,7 +23,7 @@ possibilities to Ruby developers:
 * Create isolated library environments based on project requirements.
 * Nullify the need for per-project gemsets and multiple copies of the same gem.
 * Access libraries anywhere; there is no special "home" path they *must* reside.
-* Serve gem installed libraries faster than RubyGems itself.
+* Can also serve gem installed libraries as easily as any others.
 
 
 ## Limitations
@@ -54,7 +54,7 @@ from the following links:
 ## Status
 
 Rolls works fairly well. The core system has been in use for years.
-Library was orginally called Roll and was RubyForge project #1004. 
+Library was originally called Roll and was RubyForge project #1004. 
 She's actually been around a while! So, on the whole, the underlying
 functionality is in good working order. But the system is still 
 undergoing some development, in particular, work on simplifying 
