@@ -2,12 +2,12 @@
 # project, with loadable features, of course.
 #
 class Library
+  require 'library/core_ext'
+  require 'library/index'
   require 'library/errors'
-  require 'library/ledgered'
+  require 'library/version'
   require 'library/metadata'
   require 'library/feature'
-
-  extend Ledgered
 
   #
   # Dynamic link extension.

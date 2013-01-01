@@ -3,6 +3,8 @@ class Library
   # This module simply extends the Library class, giving it certain
   # convenience methods for interacting with the current Ledger.
   #
+  # TODO: Change name of module, or move to Library.
+  #
   module Ledgered
 
     #
@@ -173,6 +175,8 @@ class Library
 
     #
     # Access to global load stack.
+    # When loading files, the current library doing the loading is pushed
+    # on this stack, and then popped-off when it is finished.
     #
     # @return [Array] The `$LOAD_STACK` array.
     #
@@ -307,7 +311,7 @@ class Library
     #
     #
     def lock
-      output = path_file + '.lock'
+      output = lock_file
       File.open(output, 'w+') do |f|
         f << $LEDGER.to_yaml
       end
@@ -317,7 +321,13 @@ class Library
     # Remove lock file.
     #
     def unlock
-      FileUtils.rm(path_lock)
+      FileUtils.rm(lock_file)
+    end
+
+    #
+    def self.sync
+      lock
+      PATH()
     end
 
   private
@@ -334,6 +344,76 @@ class Library
       end
     end
 
+    #
+    #
+    #
+    def self.bootstrap!
+      reset!
+      Kernel.require 'library/kernel'
+    end
+
+    #
+    #
+    #
+    def self.reset!
+      #$LEDGER = Ledger.new
+      $LOAD_STACK = []
+      $LOAD_CACHE = {}
+
+      if File.exist?(lock_file)
+        ledger = YAML.load_file(lock_file)
+        $LEDGER.replace(ledger)
+      else
+        list = path_list
+        $LEDGER.prime(*list, :expound=>true)
+      end
+    end
+
+    #
+    # Library lock file.
+    #
+    def self.lock_file
+      File.expand_path("~/.ruby/#{ruby_version}.roll")
+    end
+
+    #
+    #
+    #
+    def self.ruby_version
+      if ruby = ENV['RUBY']
+        File.dirname(ruby)
+      else
+        RUBY_VERSION
+      end
+    end
+
+    #
+    # Library list file.
+    #
+    #def self.path_file
+    #  File.expand_path("~/.ruby/#{ruby_version}.path")
+    #  #File.expand_path('~/.ruby-path')
+    #end
+
+    #
+    # TODO: Should the path file take precedence over the environment variable?
+    #
+    def self.path_list
+      if list = ENV['RUBY_LIBRARY']
+        list.split(/[:;]/)
+      #elsif File.exist?(path_file)
+      #  File.readlines(path_file).map{ |x| x.strip }.reject{ |x| x.empty? || x =~ /^\s*\#/ }
+      elsif ENV['GEM_PATH']
+        ENV['GEM_PATH'].split(/[:;]/).map{ |dir| File.join(dir, 'gems', '*') }
+      elsif ENV['GEM_HOME']
+        ENV['GEM_HOME'].split(/[:;]/).map{ |dir| File.join(dir, 'gems', '*') }
+      else
+        warn "No Ruby libraries."
+        []
+      end
+    end
+
   end
 
+  extend Ledgered
 end
