@@ -2,11 +2,10 @@
 # project, with loadable features, of course.
 #
 class Library
-  require 'rolls/library/load_error'
-  require 'rolls/library/validation_error'
-  require 'rolls/library/ledgered'
-  require 'rolls/library/metadata'
-  require 'rolls/library/feature'
+  require 'library/errors'
+  require 'library/ledgered'
+  require 'library/metadata'
+  require 'library/feature'
 
   extend Ledgered
 

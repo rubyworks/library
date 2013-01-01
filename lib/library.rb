@@ -1,3 +1,3 @@
-require 'rolls/rolls'
+require 'library/library'
 
-Rolls.bootstrap!
+Library.bootstrap!

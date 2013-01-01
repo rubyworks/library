@@ -1,22 +1,22 @@
-module Rolls
+class Library
 
-  #
-  #
-  #
-  def self.index
-    @index ||= (
-      file = File.expand_path('../rolls.yml', __dir__)
-      YAML.load_file(file)
-    )
-  end
-
-protected
+  protected
 
   #
   #
   #
   def self.const_missing(name)
-    index(name.to_s.downcase) || super(name)
+    index[name.to_s.downcase] || super(name)
+  end
+
+  #
+  #
+  #
+  def self.index
+    @_index ||= (
+      file = File.expand_path('../library.yml', __dir__)
+      YAML.load_file(file)
+    )
   end
 
   #
