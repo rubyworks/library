@@ -2,16 +2,16 @@
 version: "2.0.0"
 
 name:
-  rolls
+  library
 
 title:
-  Rolls
+  Library
 
 summary:
-  Ruby Objectifed Library Ledgering System
+  Library Management System
 
 description:
-  Rolls is library management system for Ruby. Rolls objectifies
+  Library is library management system for Ruby. Library objectifies
   the concept of a Ruby library and encapsualtes its essential nature 
   as a location on disk from which scripts can be required.
 
@@ -19,12 +19,12 @@ authors:
   - Trans <transfire@gmail.com>
 
 resources:
-  home: http://rubyworks.github.com/rolls
-  code: http://github.com/rubyworks/rolls
+  home: http://rubyworks.github.com/library
+  code: http://github.com/rubyworks/library
   mail: http://groups.google.com/groups/rubyworks-mailinglist
 
 repositories:
-  upstream: git://github.com/rubyworks/rolls.git
+  upstream: git://github.com/rubyworks/library.git
 
 organizations:
   - Rubyworks (http://rubyworks.github.com/)
