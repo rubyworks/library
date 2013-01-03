@@ -43,7 +43,7 @@ class Library
   def initialize(location, metadata={})
     raise TypeError, "not a directory - #{location}" unless File.directory?(location)
 
-    @location = location
+    @location = location.to_s
     @metadata = Metadata.new(location, metadata)
 
     raise ValidationError, "Non-conforming library (missing name) -- `#{location}'" unless name

@@ -36,9 +36,8 @@ class Library
     # @return [Library] Added library object.
     #
     def add(library)
-      if ! Library === library
-        library = Library.new(library)
-      end
+      library = Library.new(library) unless Library === library
+
       #raise TypeError unless Library === library
       #begin
         entry = @table[library.name]
@@ -638,7 +637,7 @@ class Library
 
       paths.each do |path|
         begin
-          add_location(path) if library_path?(path)
+          add(path) if library_path?(path)
         rescue => err
           $stderr.puts err.message if ENV['debug']
         end
@@ -667,21 +666,31 @@ class Library
   private
 
     #
-    # For flexible priming, this method can be used to recursively
+    # For flexible priming, this method is used to recursively
     # lookup library locations.
     #
-    # If a given path is a file, it will considered a lookup "roll",
+    # If a given path is a file, it will considered a lookup *roll*,
     # such that each line entry in the file is considered another
     # path to be expounded upon.
     #
     # If a given path is a directory, it will be returned if it
-    # is a valid Ruby library location, otherwise each subdirectory
-    # will be checked to see if it is a valid Ruby library location,
-    # and returned if so.
+    # is a valid Ruby library location.
+    #
+    # If it is a directory each of its subdirectories will be checked
+    # to see if it is a valid Ruby library location, and returned if so.
+    #
+    # However, if the directory contains a subdirectory called `gems`,
+    # that directory will be serache instead. This is done to support
+    # RubyGems locations via the `$HOME_PATH`.
     #
     # If, on the other hand, a given path is a file glob pattern,
     # the pattern will be expanded and those paths will expounded
     # upon in turn.
+    #
+    # @param [Array<String>] entries
+    #   File system paths to use to build list of library locations.
+    #
+    # @return [Array<String>] List of verified library locations.
     #
     def expound_paths(*entries)
       paths = []
@@ -696,7 +705,11 @@ class Library
           if library_path?(entry)
             paths << entry
           else
-            subpaths = Dir.glob(File.join(entry, '*/'))
+            if File.directory?(File.join(entry, 'gems'))
+              subpaths = Dir.glob(File.join(entry, 'gems/*/'))
+            else
+              subpaths = Dir.glob(File.join(entry, '*/'))
+            end
             subpaths.each do |subpath|
               paths << subpath if library_path?(subpath)
             end
