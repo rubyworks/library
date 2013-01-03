@@ -3,14 +3,14 @@ require 'library/rubylib'
 require 'library/ledger'
 require 'library/ledgered'
 
-$LEDGER = Ledger.new
+$LEDGER = Library::Ledger.new
 $LOAD_STACK = []
 $LOAD_CACHE = {}
 
 class Library
   extend Ledgered
+  # Should this be here? Or just in `ubylibs.rb`?
+  bootstrap!
 end
 
-# Should this be here? Or just in `ubylibs.rb`?
-Library.bootstrap!
-
+$stderr.puts "Booted!"

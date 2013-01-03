@@ -28,6 +28,8 @@ class Library
       @loadpath  = loadpath
       @filename  = filename
       @extension = extension
+
+      @required = {}
     end
 
     #
@@ -99,63 +101,73 @@ class Library
     end
 
     #
-    # Acquire the feature --Roll's advanced require/load method.
+    # Load feature.
     #
-    # @return [true,false] true if loaded, false if it already has been loaded.
+    # @param [Hash] options
     #
-    def acquire(options={})
-      if options[:load] # TODO: .delete(:load) ?
-        load(options)
-      else
-        require(options)
+    # @option options [Boolean] :require
+    #   Load the feature only once (per scope).
+    #
+    # @return [true,false] true if loaded/required, false otherwise.
+    #
+    def load(options={})
+      # ruby 1.8 does not use absolutes
+      #if library_name == 'ruby' #or library_name == 'site_ruby'
+      #  if options[:require] && !options[:wrap]
+      #    return false if $".include?(localname)
+      #    $" << localname
+      #  end
+      #end
+
+      $LOAD_STACK << self #library
+      begin
+        library_activate unless options[:force]
+        success = evaluate(options[:wrap], options[:require])
+      #rescue ::LoadError => load_error
+      #  raise LoadError.new(localname, library_name)
+      ensure
+        $LOAD_STACK.pop
       end
+      success
     end
 
     #
-    # Require feature.
+    # Require feature. This is the same as load except the the feature will
+    # only be loaded once per scope. The default scope is `TOPLEVEL_BINDING`.
     #
     # @return [true,false] true if loaded, false if it already has been loaded.
     #
     def require(options={})
-      if library_name == 'ruby' #or library_name == 'site_ruby'
-        return false if $".include?(localname)  # ruby 1.8 does not use absolutes
-        $" << localname # ruby 1.8 does not use absolutes
-      end
-
-      # TODO: return false if $".include(fullname) ? But Ruby should be handling this.
-
-      Library.load_stack << self #library
-      begin
-        library_activate unless options[:force]
-        success = __require__(fullname)
-      #rescue ::LoadError => load_error  # TODO: deativeate this if $DEBUG ?
-      #  raise LoadError.new(localname, library_name)
-      ensure
-        Library.load_stack.pop
-      end
-      success
+      options[:require] = true
+      load(options)
     end
 
+    #def require(options={})
+    #  if library_name == 'ruby' #or library_name == 'site_ruby'
+    #    return false if $".include?(localname)  # ruby 1.8 does not use absolutes
+    #    $" << localname                         # ruby 1.8 does not use absolutes
+    #  end
     #
-    # Load feature.
+    #  # TODO: return false if $".include(fullname) ? But Ruby should be handling this.
     #
-    # @return [true,false] true if loaded, false if it already has been loaded.
-    #
-    def load(options={})
-      if library_name == 'ruby' #or library_name == 'site_ruby'
-        $" << localname # ruby 1.8 does not use absolutes
-      end
+    #  Library.load_stack << self #library
+    #  begin
+    #    library_activate unless options[:force]
+    #    @required = true
+    #    success = require_without_library(fullname)
+    #  #rescue ::LoadError => load_error  # TODO: deativeate this if $DEBUG ?
+    #  #  raise LoadError.new(localname, library_name)
+    #  ensure
+    #    Library.load_stack.pop
+    #  end
+    #  success
+    #end
 
-      Library.load_stack << self #library
-      begin
-        library_activate unless options[:force]
-        success = __load__(fullname, options[:wrap])
-      #rescue ::LoadError => load_error
-      #  raise LoadError.new(localname, library_name)
-      ensure
-        Library.load_stack.pop
-      end
-      success
+    #
+    # Has the feature been required?
+    #
+    def required?(scope=nil)
+      @required[scope || TOPLEVEL_BINDING]
     end
 
     #
@@ -205,6 +217,50 @@ class Library
     #
     def hash
       fullname.hash
+    end
+
+    #
+    # Read file.
+    #
+    def read
+      ::File.read(fullname)
+    end
+
+  private
+
+    #
+    # Evaluate feature within given scope.
+    #
+    # @param [Boolean] required
+    #   Only evaluate once per scope.
+    #
+    # @return [Boolean] Will return true if evaluated, false otherwise.
+    #
+    def evaluate(scope, required=false)
+      return false if required && required?(scope)
+
+      case scope
+      when FalseClass, NilClass, TrueClass
+        if required
+          success = require_without_library(fullname)
+          @required[TOPLEVEL_BINDING] = true if required
+        else
+          success = load_without_library(fullname, scope)
+        end
+      when Module, Class
+        scope.module_eval(read, fullname)
+        @required[scope] = true if required
+        success = true
+      when Binding
+        scope.eval(read, fullname)
+        @required[scope] = true if required
+        success = true
+      else
+        # TODO: Evaluate feature into object scope ?
+        raise LoadError
+      end
+
+      success
     end
 
   end

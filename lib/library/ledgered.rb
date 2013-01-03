@@ -1,11 +1,13 @@
 class Library
-
+  
   # This module simply extends the Library class, giving it certain
   # convenience methods for interacting with the current Ledger.
   #
   # TODO: Change name of module, or move to Library.
   #
   module Ledgered
+
+    require 'tmpdir'
 
     #
     # Access to library ledger.
@@ -65,10 +67,8 @@ class Library
     # @return [Library]
     #   The activated Library object.
     #
-    def activate(name, constraint=nil) #:yield:
-      library = $LEDGER.activate(name, constraint)
-      yield(library) if block_given?
-      library
+    def activate(name, constraint=nil, &block) #:yield:
+      $LEDGER.activate(name, constraint, &block)
     end
 
     #
@@ -79,11 +79,7 @@ class Library
     # @return [Library] The new library.
     #
     def add(location)
-      $LEDGER.add_location(location)
-
-      #library = new(location)
-      #$LEDGER.add_library(library)
-      #library
+      $LEDGER.add(location)
     end
 
     #
@@ -195,38 +191,7 @@ class Library
     # @return [true,false] If feature was newly required or successfully loaded.
     #
     def require(pathname, options={})
-      #options_prior = ($LOAD_OPTIONS ||= {})
-      #$LOAD_OPTIONS = options
-      #$LOAD_OPTIONS[:legacy] = true if options_prior[:legacy]
-
-      #begin
-        if file = $LOAD_CACHE[pathname]
-          if options[:load]
-            return file.load
-          else
-            return false
-          end
-        end
-
-        #unless $LOAD_OPTIONS[:legacy]
-
-        if feature = Library.find(pathname, options)
-          #file.library_activate
-          $LOAD_CACHE[pathname] = feature
-          return feature.acquire(options)
-        end
-
-        #end
-
-        # fallback to Ruby's own load mechinisms
-        if options[:load]
-          __load__(pathname, options[:wrap])
-        else
-          __require__(pathname)
-        end
-      #ensure
-      #  $LOAD_OPTIONS = options_prior
-      #end
+      $LEDGER.require(pathname, options)
     end
 
     #
@@ -240,68 +205,39 @@ class Library
     # @return [true,false] if feature was successfully loaded
     #
     def load(pathname, options={}) #, &block)
-      #options.merge!(block.call) if block
-
-      unless Hash === options
-        options = {}
-        options[:wrap] = options 
-      end
-
-      options[:load]   = true
-      options[:suffix] = false
-      options[:local]  = false
-
-      require(pathname, options)
-
-      #if file = $LOAD_CACHE[path]
-      #  return file.load
-      #end
-
-      #if file = Library.find(path, options)
-      #  #file.library_activate
-      #  $LOAD_CACHE[path] = file
-      #  return file.load(options) #acquire(options)
-      #end
-
-      ##if options[:load]
-      #  __load__(path, options[:wrap])
-      ##else
-      ##  __require__(path)
-      ##end
+      $LEDGER.load(pathname, options)
     end
 
     #
-    # Roll-style loading. First it looks for a specific library via `:`.
-    # If `:` is not present it then tries the current loading library.
-    # Failing that it fallsback to Ruby itself.
+    # Like require but also with local lookup. It will first check to see
+    # if the currently loading library has the path relative to its load paths.
     #
-    #   require('facets:string/margin')
+    #   acquire('core_ext/margin')
     #
     # To "load" the library, rather than "require" it, set the +:load+
     # option to true.
     #
-    #   require('facets:string/margin', :load=>true)
+    #   acquire('core_ext/string/margin', :load=>true)
     #
     # @param pathname [String]
-    #   pathname of feature relative to library's loadpath
+    #   Pathname of feature relative to library's loadpath.
     #
-    # @return [true, false] if feature was newly required
+    # @return [true, false] If feature was newly required.
     #
     def acquire(pathname, options={}) #, &block)
-      #options.merge!(block.call) if block
-      options[:local] = true
-      require(pathname, options)
+      $LEDGER.acquire(pathname, options)
     end
 
+
     #
-    # Go thru each library and make sure bin path is in path.
+    # Go thru each library and collect bin paths.
     #
     # @todo Should this be defined on Ledger?
     #
     def PATH()
       path = []
       list.each do |name|
-        lib = Library[name]
+        lib = Library[name]   # TODO: This activates each library, probably not what we want, get max version instead?
         path << lib.bindir if lib.bindir?
       end
       path.join(windows_platform? ? ';' : ':')
@@ -312,22 +248,78 @@ class Library
     #
     def lock
       output = lock_file
+
+      dir = File.dirname(output)
+      unless File.directory?(dir)
+        FileUtils.mkdir_p(dir)
+      end
+
       File.open(output, 'w+') do |f|
         f << $LEDGER.to_yaml
       end
     end
 
     #
-    # Remove lock file.
+    # Remove lock file and reset ledger.
     #
     def unlock
-      FileUtils.rm(lock_file)
+      FileUtils.rm(lock_file) if File.exist?(lock_file)
+      reset!
     end
 
     #
-    def self.sync
+    #
+    #
+    def sync
+      unlock if locked?
       lock
       PATH()
+    end
+
+    #
+    # Library lock file.
+    #
+    def lock_file
+      File.join(tmpdir, "#{ruby_version}.ledger")
+    end
+
+    #
+    #
+    #
+    def live?
+      ENV['RUBY_LIBRARY_MODE'] == 'live'
+    end
+
+    #
+    #
+    #
+    def locked?
+      File.exist?(lock_file)
+    end
+
+    #
+    #
+    #
+    def reset!
+      #$LEDGER = Ledger.new
+      #$LOAD_STACK = []
+      #$LOAD_CACHE = {}
+
+      if File.exist?(lock_file) && ! live?
+        ledger = YAML.load_file(lock_file)
+        case ledger
+        when Ledger
+          $LEDGER = ledger
+          return $LEDGER
+        when Hash
+          $LEDGER.replace(ledger)
+          return $LEDGER
+        else
+          warn "Bad cached ledger at #{lock_file}"
+        end
+      end
+
+      $LEDGER.prime(*path_list, :expound=>true)
     end
 
   private
@@ -347,41 +339,24 @@ class Library
     #
     #
     #
-    def self.bootstrap!
+    def bootstrap!
       reset!
-      Kernel.require 'library/kernel'
+      require_relative 'kernel'
     end
 
     #
     #
     #
-    def self.reset!
-      #$LEDGER = Ledger.new
-      $LOAD_STACK = []
-      $LOAD_CACHE = {}
-
-      if File.exist?(lock_file)
-        ledger = YAML.load_file(lock_file)
-        $LEDGER.replace(ledger)
-      else
-        list = path_list
-        $LEDGER.prime(*list, :expound=>true)
-      end
-    end
-
-    #
-    # Library lock file.
-    #
-    def self.lock_file
-      File.expand_path("~/.ruby/#{ruby_version}.roll")
+    def tmpdir
+      File.join(Dir.tmpdir, 'ruby')
     end
 
     #
     #
     #
-    def self.ruby_version
+    def ruby_version
       if ruby = ENV['RUBY']
-        File.dirname(ruby)
+        File.basename(ruby)
       else
         RUBY_VERSION
       end
@@ -390,7 +365,7 @@ class Library
     #
     # Library list file.
     #
-    #def self.path_file
+    #def path_file
     #  File.expand_path("~/.ruby/#{ruby_version}.path")
     #  #File.expand_path('~/.ruby-path')
     #end
@@ -398,7 +373,7 @@ class Library
     #
     # TODO: Should the path file take precedence over the environment variable?
     #
-    def self.path_list
+    def path_list
       if list = ENV['RUBY_LIBRARY']
         list.split(/[:;]/)
       #elsif File.exist?(path_file)

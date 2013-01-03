@@ -1,5 +1,7 @@
 class Library
 
+  $MONITOR = true
+
   # Ledger class track available libraries by library name.
   # It is essentially a hash object, but with a special way
   # of storing them to track versions. Each have key is the
@@ -24,61 +26,20 @@ class Library
     end
 
     #
-    # Add a library to the ledger.
+    # Add library to the ledger given a library location or a Library object.
+    #
+    # @todo: Name of this method sucks, change to what?
     #
     # @param [String,Library]
-    #   A path to a ruby library or a Library object.
+    #   The directory path to a ruby library or an instance of Library.
     #
     # @return [Library] Added library object.
     #
-    def add(lib)
-      case lib
-      when Library
-        add_library(lib)
-      else
-        add_location(lib)
+    def add(library)
+      if ! Library === library
+        library = Library.new(library)
       end
-    end
-
-    #
-    # Alias for #add method.
-    #
-    alias_method :<<, :add
-
-    #
-    # Add library to ledger given a location.
-    #
-    # @return [Library] Added library object.
-    #
-    def add_location(location)
-      begin
-        library = Library.new(location)
-
-        entry = @table[library.name]
-
-        if Array === entry
-          entry << library unless entry.include?(library)
-        else
-          # Library is already active so compare and make sure they are the
-          # same, otherwise warn. (Should this ever raise an error?)
-          if entry != library  # TODO: Is this the right equals comparison?
-            warn "Added library has already been activated."
-          end
-        end
-      rescue Exception => error
-        warn error.message if ENV['debug']
-      end
-
-      library
-    end
-
-    #
-    # Add library to ledger given a Library object.
-    #
-    # @return [Library] Added library object.
-    #
-    def add_library(library)
-      raise TypeError unless Library === library
+      #raise TypeError unless Library === library
       #begin
         entry = @table[library.name]
 
@@ -97,6 +58,11 @@ class Library
 
       library
     end
+
+    #
+    # Alias for #add method.
+    #
+    alias_method :<<, :add
 
     #
     # Get library or library version set by name.
@@ -124,12 +90,20 @@ class Library
     end
 
     #
+    # Replace current ledger with table from another.
     #
-    #
-    def replace(table)
-      initialize
-      table.each do |name, value|
-        @table[name.to_s] = value
+    def replace(ledger)
+      case ledger
+      when Ledger
+        @table.replace(ledger.table)
+      when Hash
+        initialize  # reinitialize
+        ledger.each do |name, value|
+          raise TypeError unless Array === value || Library === value
+          @table[name.to_s] = value
+        end
+      else
+        raise TypeError
       end
     end
 
@@ -141,6 +115,13 @@ class Library
     end
 
     #
+    # Get a copy of the underlying table.
+    #
+    def to_h
+      @table.dup
+    end
+
+    #
     # Size of the ledger is the number of libraries available.
     #
     # @return [Fixnum] Size of the ledger.
@@ -148,6 +129,8 @@ class Library
     def size
       @table.size
     end
+
+    # TODO: Seems like Ledger#key?, #keys and #values should have better names.
 
     #
     # Checks ledger for presents of library by name.
@@ -236,7 +219,7 @@ class Library
     #
     # @todo Should we also check $"? Eg. `return false if $".include?(path)`.
     #
-    def activate(name, constraint=nil)
+    def activate(name, constraint=nil) #:yield:
       raise LoadError, "no such library -- #{name}" unless key?(name)
 
       library = self[name]
@@ -249,20 +232,115 @@ class Library
         end
       else # library is an array of versions
         if constraint
-          verscon = Version::Constraint.parse(constraint)
-          library = library.select{ |lib| verscon.compare(lib.version) }.max
+          #verscon = Version::Constraint.parse(constraint)
+          #library = library.select{ |lib| verscon.compare(lib.version) }.max
+          library = contrain(name, constraint).max
         else
           library = library.max
         end
         unless library
           raise VersionError, "no library version -- #{name} #{constraint}"
         end
-
         self[name] = library #constrain(library)
       end
 
+      yield(library) if block_given?
+
       library
     end
+
+    #
+    # Load file path. This is just like #require except that previously
+    # loaded files will be reloaded and standard extensions will not be
+    # automatically appended.
+    #
+    # @param pathname [String]
+    #   pathname of feature relative to library's loadpath
+    #
+    # @return [true,false] if feature was successfully loaded
+    #
+    def load(pathname, options={})
+      unless Hash === options
+        options = {}
+        options[:wrap] = options 
+      end
+      options = options.rekey
+
+      #if feature = $LOAD_CACHE[pathname]
+      #  return feature.load if options[:load]
+      #  return false if feature.required?
+      #  return feature.require(options)
+      #end
+
+      if feature = find_feature(pathname, options)
+        feature.load(options)
+      else  # fallback to Ruby's load system
+        feature = LegacyFeature.new(pathname)
+        $LOAD_CACHE[pathname] = feature
+        success = feature.load(options)
+      end
+    end
+
+    #
+    # Require a feature from the library.
+    #
+    # @param [String] pathname
+    #   The pathname of feature relative to library's loadpath.
+    #
+    # @param [Hash] options
+    #
+    # @return [true,false] If feature was newly required or successfully loaded.
+    #
+
+    def require(pathname, options={})
+      options[:require] = true
+      options[:suffix]  = true
+
+      load(pathname, options)
+
+      #if file = $LOAD_CACHE[path]
+      #  return file.load
+      #end
+
+      #if file = Library.find(path, options)
+      #  #file.library_activate
+      #  $LOAD_CACHE[path] = file
+      #  return file.load(options) #acquire(options)
+      #end
+
+      ##if options[:load]
+      #  load_without_library(path, options[:wrap])
+      ##else
+      ##  require_without_library(path)
+      ##end
+    end
+
+    #
+    # Require from current library.
+    #
+    # @param pathname [String]
+    #   Pathname of feature relative to current library's loadpath.
+    #
+    # @return [true, false] If feature is newly required.
+    #
+    # @todo better name for `#require_local`?
+    #
+    def require_local(path, options={})
+      if feature = find_local_feature(path, options)
+        $stderr.puts "#{path} (local)" if monitor?  # debugging
+        return feature.require(options)
+      end
+    end
+
+    #
+    # Require from current library.
+    #
+    # @param pathname [String]
+    #   Pathname of feature relative to current library's loadpath.
+    #
+    # @return [true, false] If feature is newly required.
+    #
+    alias_method :acquire, :require_local
 
     #
     # Find matching library features. This is the "mac daddy" method used by
@@ -270,77 +348,66 @@ class Library
     # the various libraries and their load paths.
     #
     def find_feature(path, options={})
-      path   = path.to_s
+      path = path.to_s
 
       #suffix = options[:suffix]
-      search = options[:search]
-      local  = options[:local]
-      from   = options[:from]
+      #search = options[:search]
+      legacy = options[:legacy]
+
+      ftr = $LOAD_CACHE[path]
+
+      return ftr if ftr 
 
       $stderr.print path if monitor?  # debugging
 
       # absolute, home or current path
       #
       # NOTE: Ideally we would try to find a matching path among avaliable libraries
-      # so that the library can be activated, however this would probably add too
-      # much overhead and will by mostly a YAGNI, so we forgo this functionality, 
-      # at least for now. 
+      # so that the library can be activated, however this would add extra overhead
+      # overhead and will by mostly a YAGNI, so we forgo this functionality, at least for now. 
       case path[0,1]
       when '/', '~', '.'
         $stderr.puts "  (absolute)" if monitor?  # debugging
-        return nil  # fallback to Ruby's standard require
+        # TODO: expand path and ensure exists?
+        ftr = LegacyFeature.new(path)
+        $LOAD_CACHE[path] = ftr
+        return ftr
       end
 
-      # from explicit library
-      if from
-        return find_library_feature(from, path, options)
-      end
+      from, subpath = ::File.split_root(path)
 
-      # check the load stack (TODO: just last or all?)
-      if local
-        if last = $LOAD_STACK.last
-        #$LOAD_STACK.reverse_each do |feature|
-          lib = last.library
-          if ftr = lib.find(path, options)
-            unless $LOAD_STACK.include?(ftr)  # prevent recursive loading
-              $stderr.puts "  (2 stack)" if monitor?  # debugging
-              return ftr
-            end
-          end
-        end
-      end
-
-      name, fname = ::File.split_root(path)
-
-      # if the head of the path is the library
-      if fname
-        if name == 'ruby'  # part of the ruby hack
-          return find_library_feature('ruby', fname, options)
+      if from == 'ruby'  # ruby hack
+        $stderr.puts "  (ruby)" if monitor?  # debugging
+        lib = RubyLibrary.singleton
+        if subpath
+          ftr = find_library_feature('ruby', subpath, options)
         else
-          lib = Library[name]
-          if lib && ftr = lib.find(path, options) || lib.find(fname, options)
-            $stderr.puts "  (3 indirect)" if monitor?  # debugging
-           return ftr
+          # what the hell is just `load 'ruby'` ;)
+        end
+      else
+        if lib = Library[from]   # TODO: this activates, should it only do if it has feature? self[from].max instead?
+          $stderr.puts "  (from)" if monitor?  # debugging
+          if subpath  # library name with subpath (path == from)
+            ftr = lib.find_feature(path, options) || lib.find_feature(subpath, options)
+            # TODO: activate library here? if ftr?
+          else  # just library name
+            ftr = lib.default_feature
+            # TODO: activate library here? if ftr?
           end
         end
       end
 
-      # plain library name?
-      if !fname && lib = Library.instance(path)
-        if ftr = lib.default  # default feature to load
-          $stderr.puts "  (5 plain library name)" if monitor?  # debugging
-          return ftr
-        end
-      end
+      return $LOAD_CACHE[path] = ftr if ftr
 
-      # fallback to brute force search
-      #if search #or legacy
+      # fallback to legacy brute force search
+      # (This is very bad b/c it is the source of name clashes between libraries.)
+      if legacy
         #options[:legacy] = true
         if ftr = find_any(path, options)
-          $stderr.puts "  (6 brute search)" if monitor?  # debugging
-          return ftr
+          $stderr.puts "  (6 legacy search)" if monitor?  # debugging
+          return($LOAD_CACHE[path] = ftr)
         end
-      #end
+      end
 
       $stderr.puts "  (7 fallback)" if monitor?  # debugging
 
@@ -354,14 +421,30 @@ class Library
       case lib
       when Library
       when :ruby, 'ruby'
-        lib = RubyLibrary.singleton  # sort of a hack to let rubygems edge in
-      else                           # b/c if RubyLibary is in the regular ledger
-        lib = library(lib)           # then it prevents gems working for anything 
-      end                            # with the same name in ruby site locations.
-      ftr = lib.find(path, options)
+        lib = RubyLibrary.singleton    # sort of a hack to let rubygems edge in
+      else                             # b/c if RubyLibary is in the regular ledger
+        lib = self[lib] #library(lib)  # then it prevents gems working for anything 
+      end                              # with the same name in ruby site locations.
+      ftr = lib.find_feature(path, options)
       raise LoadError, "no such file to load -- #{path}" unless ftr
       $stderr.puts "  (direct)" if monitor?  # debugging
+      # TODO: activate library here if ftr?
       return ftr
+    end
+
+    #
+    # Find a feature from the currently loading library.
+    #
+    def find_local_feature(path, options={})
+      if lib = __LIBRARY__
+        if ftr = lib.find(path, options)
+          return nil if $LOAD_STACK.include?(ftr)  # prevent recursive loading
+          return ftr
+        end
+      else
+        # can this even happen?
+        nil
+      end
     end
 
     #
@@ -384,7 +467,7 @@ class Library
     # @option options [Boolean] :legacy
     #   Do not match within library's +name+ directory, eg. `lib/foo/*`.
     #
-    # @return [Feature,Array] Matching feature(s).
+    # @return [Feature] Matching feature.
     #
     def find_any(path, options={})
       options = options.merge(:main=>true)
@@ -551,7 +634,7 @@ class Library
 
       paths = expound_paths(*paths) if options[:expound]
 
-      require 'library/rubylib'  # TODO: What's the reason rubylib.rb is loaded here?
+      #require 'library/rubylib'  # TODO: What's the reason rubylib.rb is loaded here?
 
       paths.each do |path|
         begin
@@ -570,6 +653,15 @@ class Library
       #add_library(RubyLibrary.new)
 
       self
+    end
+
+  protected
+
+    #
+    # Protected access to underlying table.
+    #
+    def table
+      @table
     end
 
   private

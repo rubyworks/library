@@ -8,6 +8,7 @@ class Library
   require 'library/version'
   require 'library/metadata'
   require 'library/feature'
+  require 'library/legacy_feature'
 
   #
   # Dynamic link extension.
@@ -223,11 +224,11 @@ class Library
   #
   # @return [Feature,nil] The feature, if found.
   #
-  def find(pathname, options={})
+  def find_feature(pathname, options={})
     main   = options[:main]
     #legacy = options[:legacy]
     suffix = options[:suffix] || options[:suffix].nil?
-    #suffix = false if options[:load]
+    #suffix = true if options[:require]
     suffix = false if SUFFIXES.include?(::File.extname(pathname))
     if suffix
       loadpath.each do |lpath|
@@ -256,9 +257,9 @@ class Library
   end
 
   #
-  # Alias for #find.
+  # Alias for #find_feature.
   #
-  alias_method :include?, :find
+  alias_method :include?, :find_feature
 
   #
   #
@@ -297,7 +298,7 @@ class Library
   # Requre feature from library.
   #
   def require(pathname, options={})
-    if feature = find(pathname, options)
+    if feature = find_feature(pathname, options)
       feature.require(options)
     else
       raise LoadError.new(path, name)  # TODO: silently?
@@ -308,8 +309,7 @@ class Library
   # Load feature form library.
   #
   def load(pathname, options={})
-    #options[:load] = true
-    if feature = find(pathname, options)
+    if feature = find_feature(pathname, options)
       feature.load(options)
     else
       raise LoadError.new(pathname, self.name)
@@ -345,9 +345,12 @@ class Library
   # Return default feature. This is the feature that has same name as
   # the library itself.
   #
-  def default
-    @default ||= find(name, :main=>true)
+  def default_feature
+    @default ||= find_feature(name, :main=>true)
   end
+
+  # @deprecated  
+  alias_method :default, :default_feature
 
   #--
   #    # List of subdirectories that are searched when loading.
