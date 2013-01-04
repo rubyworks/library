@@ -228,6 +228,7 @@ class Library
       $LEDGER.acquire(pathname, options)
     end
 
+# -----------------
 
     #
     # Go thru each library and collect bin paths.
@@ -244,7 +245,9 @@ class Library
     end
 
     #
+    # Lock the ledger, by saving it to the temporary lock file.
     #
+    # @todo Should we update the ledger first?
     #
     def lock
       output = lock_file
@@ -268,7 +271,10 @@ class Library
     end
 
     #
+    # Synchronize the ledger to the current system state and save.
+    # Also, returns the bin paths of all libraries.
     #
+    # @return [Array<String>] List of bin paths.
     #
     def sync
       unlock if locked?
@@ -279,31 +285,35 @@ class Library
     #
     # Library lock file.
     #
+    # @return [String] Path to ledger lock file.
+    # 
     def lock_file
       File.join(tmpdir, "#{ruby_version}.ledger")
     end
 
     #
+    # Check is `RUBY_LIBRARY_MODE` environment variable is set to `live`.
     #
+    # @return [Booelan] Using live mode?
     #
     def live?
       ENV['RUBY_LIBRARY_MODE'] == 'live'
     end
 
     #
-    #
+    # Is there a saved locked ledger?
     #
     def locked?
       File.exist?(lock_file)
     end
 
     #
-    #
+    # Reset the Ledger.
     #
     def reset!
       #$LEDGER = Ledger.new
       #$LOAD_STACK = []
-      #$LOAD_CACHE = {}
+      $LOAD_CACHE = {}
 
       if File.exist?(lock_file) && ! live?
         ledger = YAML.load_file(lock_file)
@@ -319,25 +329,14 @@ class Library
         end
       end
 
-      $LEDGER.prime(*path_list, :expound=>true)
+      $LEDGER.prime(*lookup_paths, :expound=>true)
     end
 
   private
 
     #
-    # TODO: Better definition of `RbConfig#windows_platform?`.
-    #
-    def windows_platform?
-      case RUBY_PLATFORM
-      when /mswin/, /wince/
-        true
-      else
-        false
-      end
-    end
-
-    #
-    #
+    # Bootstap the system, which is to say hit `#reset!` and
+    # load the Kernel overrides.
     #
     def bootstrap!
       reset!
@@ -345,14 +344,18 @@ class Library
     end
 
     #
-    #
+    # A temporary directory in which the locked ledger can be stored.
     #
     def tmpdir
       File.join(Dir.tmpdir, 'ruby')
     end
 
     #
+    # Get an identifier for the current Ruby. This is taken from the `RUBY`
+    # environment  variable if it is set, otherwise the `RUBY_VERSION` constant
+    # is returned.
     #
+    # @return [String] Ruby version indentifier.
     #
     def ruby_version
       if ruby = ENV['RUBY']
@@ -371,9 +374,11 @@ class Library
     #end
 
     #
-    # TODO: Should the path file take precedence over the environment variable?
+    # List of paths where the lookup of libraries should proceed.
+    # This come from the `RUBY_LIBRARY` environment variable, if set.
+    # Otherwise it fallback to `GEM_PATH` or `GEM_HOME`.
     #
-    def path_list
+    def lookup_paths
       if list = ENV['RUBY_LIBRARY']
         list.split(/[:;]/)
       #elsif File.exist?(path_file)
@@ -385,6 +390,21 @@ class Library
       else
         warn "No Ruby libraries."
         []
+      end
+    end
+
+    #
+    # Is the current platform a Windows-based OS?
+    #
+    # @todo This is one of those methods that probably can always
+    #       use a little improvement.
+    #
+    def windows_platform?
+      case RUBY_PLATFORM
+      when /cygwin|mswin|mingw|bccwin|wince|emx/
+        true
+      else
+        false
       end
     end
 
