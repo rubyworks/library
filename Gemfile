@@ -4,6 +4,9 @@
 source "http://rubygems.org"
 #gemspec
 
+gem "autoload"
+gem "versus"
+
 group :development do
 
   group :build do
