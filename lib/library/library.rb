@@ -24,6 +24,11 @@ class Library
   SUFFIXES = ['.rb', '.rbw', '.so', '.bundle', '.dll', '.sl', '.jar'] #, '']
 
   #
+  # The opposite of SUFFIXES. Using this helps DRY-up the find_feature code.
+  #
+  SUFFIXES_NOT = ['']
+
+  #
   # Extensions glob, joins extensions with comma and wrap in curly brackets.
   #
   SUFFIX_PATTERN = "{#{SUFFIXES.join(',')}}"
@@ -169,7 +174,7 @@ class Library
   # @return [Array] list of requirements
   #
   def requirements
-    metadata.requirements
+    metadata.requirements || []
   end
 
   #
@@ -194,6 +199,8 @@ class Library
   # Same as `#omit`.
   #
   alias_method :omit?, :omit
+
+  # TODO: Should #load_path be absolute, and #relative_loadpath or some such be used instead?
 
   #
   # Returns a list of load paths expand to full path names.
@@ -225,6 +232,33 @@ class Library
   # @return [Feature,nil] The feature, if found.
   #
   def find_feature(pathname, options={})
+    #legacy = options[:legacy]
+    main   = options[:main]
+    suffix = options[:suffix] || options[:suffix].nil?
+    #suffix = true if options[:require]                             # TODO: Is this always true?
+    suffix = false if SUFFIXES.include?(::File.extname(pathname))   # TODO: Why not just add '' to SUFFIXES?
+
+    suffixes = suffix ? SUFFIXES : SUFFIXES_NOT
+
+    loadpath.each do |lpath|
+      suffixes.each do |ext|
+        f = ::File.join(location, lpath, pathname + ext)
+        return feature(lpath, pathname, ext) if ::File.file?(f)
+      end
+    end #unless legacy
+
+    legacy_loadpath.each do |lpath|
+      suffixes.each do |ext|
+        f = ::File.join(location, lpath, pathname + ext)
+        return feature(lpath, pathname, ext) if ::File.file?(f)
+      end
+    end unless main
+
+    nil
+  end
+
+=begin
+  def find_feature(pathname, options={})
     main   = options[:main]
     #legacy = options[:legacy]
     suffix = options[:suffix] || options[:suffix].nil?
@@ -255,6 +289,7 @@ class Library
     end
     nil
   end
+=end
 
   #
   # Alias for #find_feature.
