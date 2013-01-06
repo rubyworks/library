@@ -2,9 +2,9 @@ require 'rbconfig'
 require 'library'
 
 # RubyLibrary is a specialized subclass of Library specifically designed
-# to sever Ruby's standard library. It is used to speed up load times for
-# for library files that are standard Ruby scripts and should never be
-# overriden by any 3rd party libraries. Good examples are 'ostruct' and
+# to serve Ruby's standard library locations. It is used to speed up load
+# times for for library files that are standard Ruby scripts and should never
+# be overriden by any 3rd party libraries. Good examples are 'ostruct' and
 # 'optparse'.
 #
 # This class is in the proccess of being refined to exclude certian 3rd
@@ -23,22 +23,19 @@ class RubyLibrary < Library
   # Setup Ruby library.
   #
   def initialize(*) #(location, metadata={})
-    #rubylibdir  = ::RbConfig::CONFIG['rubylibdir']
-    #rubyarchdir = ::RbConfig::CONFIG['archdir']
-    #rel_archdir  = rubyarchdir.sub(rubylibdir+'/', '')
-    #
-    #@location = rubylibdir
-    #@loadpath = ['', rel_archpath]
-
-    location = find_base_path(CONFIG.values_at('rubylibdir', 'sitelibdir', 'vendorlibdir'))
-    loadpath = CONFIG.values_at(
+    paths = CONFIG.values_at(
       'rubylibdir',
       'archdir',
+      'sitedir',
       'sitelibdir',
       'sitearchdir',
+      'vendordir',
       'vendorlibdir',
       'vendorarchdir'
-    ).map{ |d| d.sub(location + '/','') }
+    )
+
+    location = find_base_path(paths)
+    loadpath = paths.map{ |d| d.sub(location + '/','') }
 
     @location = location
     @loadpath = loadpath
