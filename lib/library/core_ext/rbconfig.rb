@@ -27,7 +27,7 @@ module ::RbConfig
   # Return the path to the configuration directory.
   #
   def self.confdir(name)
-    if lib = Roll::Library.instance(name)
+    if lib = Library.instance(name)
       lib.confdir
     else
       File.join(CONFIG['confdir'], name)
