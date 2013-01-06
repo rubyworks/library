@@ -1,3 +1,9 @@
+require 'rbconfig'
+
+require 'autoload'
+require 'versus'
+
+require 'library/utils'
 require 'library/library'
 require 'library/rubylib'
 require 'library/ledger'
@@ -13,4 +19,3 @@ class Library
   bootstrap!
 end
 
-$stderr.puts "Booted!"
