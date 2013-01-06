@@ -1,7 +1,5 @@
 class Library
 
-  $MONITOR = true
-
   # Ledger class track available libraries by library name.
   # It is essentially a hash object, but with a special way
   # of storing them to track versions. Each have key is the
@@ -59,9 +57,12 @@ class Library
     end
 
     #
-    # Alias for #add method.
+    # Alias for #add method, but returns the ledger instead of the library.
     #
-    alias_method :<<, :add
+    def <<(library)
+      add(library)
+      self
+    end
 
     #
     # Get library or library version set by name.
@@ -181,7 +182,9 @@ class Library
     #
     # @return [Array] List of conforming versions.
     #
-    def constrain(name, contraint)
+    def constrain(name, constraint)
+      name = name.to_s
+
       libraries = self[name]
 
       return nil unless Array === libraries
@@ -190,7 +193,7 @@ class Library
         library.version.satisfy?(constraint)
       end
 
-      self[name] = vers
+      @table[name] = vers  #self[name] = vers
     end
 
     #
@@ -233,7 +236,7 @@ class Library
         if constraint
           #verscon = Version::Constraint.parse(constraint)
           #library = library.select{ |lib| verscon.compare(lib.version) }.max
-          library = contrain(name, constraint).max
+          library = constrain(name, constraint).max
         else
           library = library.max
         end
@@ -367,24 +370,30 @@ class Library
       case path[0,1]
       when '/', '~', '.'
         $stderr.puts "  (absolute)" if monitor?  # debugging
-        # TODO: expand path and ensure exists?
+        # TODO: expand path and ensure it exists?
         ftr = LegacyFeature.new(path)
         $LOAD_CACHE[path] = ftr
         return ftr
+      end
+
+      # Look in user paths, there include -I and RUBYLIB environment locations,
+      # as well as manually added paths to $LOAD_PATH. Very hackish stuff!
+      if userpath = Utils.find_userpath(path, options)
+        return LegacyFeature.new(userpath)
       end
 
       from, subpath = ::File.split_root(path)
 
       if from == 'ruby'  # ruby hack
         $stderr.puts "  (ruby)" if monitor?  # debugging
-        lib = RubyLibrary.singleton
+        #lib = RubyLibrary.singleton
         if subpath
           ftr = find_library_feature('ruby', subpath, options)
         else
           # what the hell is just `load 'ruby'` ;)
         end
       else
-        if lib = Library[from]   # TODO: this activates, should it only do if it has feature? self[from].max instead?
+        if lib = Library[from]   # TODO: this activates, should it only do so if it has the feature? self[from].max instead?
           $stderr.puts "  (from)" if monitor?  # debugging
           if subpath  # library name with subpath (path == from)
             ftr = lib.find_feature(path, options) || lib.find_feature(subpath, options)
@@ -398,7 +407,7 @@ class Library
 
       return $LOAD_CACHE[path] = ftr if ftr
 
-      # fallback to legacy brute force search
+      # legacy brute force search
       # (This is very bad b/c it is the source of name clashes between libraries.)
       if legacy
         #options[:legacy] = true
@@ -592,32 +601,6 @@ class Library
     end
 
     #
-    # Reduce the ledger to only those libraries the given library requires.
-    #
-    # @param [String] name
-    #   The name of the primary library.
-    #
-    # @param [String] constraint
-    #   The version constraint string.
-    #
-    # @return [Ledger] The ledger.
-    #
-    def isolate(name, constraint=nil)
-      library = activate(name, constraint)
-
-      # TODO: shouldn't this be done in #activate ?
-      acivate_requirements(library)
-
-      unused = []
-      each do |name, libs|
-        ununsed << name if Array === libs
-      end
-      unused.each{ |name| @table.delete(name) }
-
-      self
-    end
-
-    #
     # Load up the ledger with a given set of paths and add an instance of
     # the special `RubyLibrary` class after that.
     #
@@ -652,6 +635,62 @@ class Library
       #add_library(RubyLibrary.new)
 
       self
+    end
+
+    #
+    # Reduce the ledger to only those libraries the given library requires.
+    #
+    # @param [String] name
+    #   The name of the primary library.
+    #
+    # @param [String] constraint
+    #   The version constraint string.
+    #
+    # @return [Ledger] The ledger.
+    #
+    def isolate(name, constraint=nil)
+      library = activate(name, constraint)
+
+      # TODO: shouldn't this be done in #activate ?
+      acivate_requirements(library)
+
+      unused = []
+      each do |name, libs|
+        ununsed << name if Array === libs
+      end
+      unused.each{ |name| @table.delete(name) }
+
+      self
+    end
+
+    #
+    # Add a library given it's path and reduce the ledger to just those libraries
+    # the given library requires.
+    #
+    # @param [String] name
+    #   The name of the primary library.
+    #
+    # @param [String] constraint
+    #   The version constraint string.
+    #
+    # @return [Ledger] The ledger.
+    #
+    def isolate_project(root)
+      library = add(root)
+      # make this library the active one
+      $LEDGER[library.name] = library
+      # constrain all requirements
+      constrain_requirements(library)
+      # now activate all requirements
+      activate_requirements(library)
+      # remove any unused requirements
+      unused = []
+      each do |name, libs|
+        ununsed << name if Array === libs
+      end
+      unused.each{ |name| @table.delete(name) }
+      # done
+      library
     end
 
   protected
@@ -763,10 +802,30 @@ class Library
 
         library = activate(name, vers)
 
-        acivate_requirements(library, development, checklist) unless checklist[library]
+        activate_requirements(library, development, checklist) unless checklist[library]
       end
 
       self
+    end
+
+    #
+    # Constrain library requirements.
+    #
+    def constrain_requirements(library, development=false, checklist={})
+      reqs = development ? library.requirements : library.runtime_requirements
+
+      checklist[library] = true
+
+      reqs.each do |req|
+        name = req['name']
+        vers = req['version']
+
+        libr = constrain(name, vers)
+
+        constrain_requirements(library, development, checklist) unless checklist[libr]
+      end
+
+      return self
     end
 
     #

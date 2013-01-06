@@ -1,5 +1,9 @@
 class Library
 
+  #
+  #  
+  # TODO: I bet we can get rid of LegacyFeature if we modify Feature to handle `nil` library better.
+  #
   class LegacyFeature < Feature
 
     #
