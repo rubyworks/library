@@ -5,7 +5,7 @@
 ( [![Build Status](https://travis-ci.org/rubyworks/autoload.png)](https://travis-ci.org/rubyworks/library) )
 
 
-# [Ruby Library](#description)
+# [The Ruby Library as a Library](#description)
 
 *Library* is library management system for Ruby. More specifically, it is a
 reformulation and partial-reimplementation of Ruby's load system. At it's 
