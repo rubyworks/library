@@ -2,7 +2,8 @@
 [Documentation](http://wiki.github.com/rubyworks/library) /
 [Report Issue](http://github.com/rubyworks/library/issues) /
 [Source Code](http://github.com/rubyworks/library)
-( )
+( [![Build Status](https://travis-ci.org/rubyworks/autoload.png)](https://travis-ci.org/rubyworks/library) )
+
 
 # [Ruby Library](#description)
 
@@ -26,16 +27,6 @@ possibilities to Ruby developers:
 * Can also serve gem installed libraries as easily as any others.
 
 
-## Limitations
-
-Ruby has a "bug" which prevents `#autoload` from using custom `#require`
-methods. So `#autoload` calls cannot make use of Library.  This is not as
-significant as it might seem since `#autoload` is being deprecated as
-of Ruby 2.0. So it is best to discontinue it's use anyway. Nonetheless,
-we have considered reimplmenting autoload functionaility, and so it may
-be in a future release.
-
-
 ## Documentation
 
 Because there is fair amount of information to cover this section will
@@ -55,11 +46,12 @@ from the following links:
 
 ## Status
 
-Library works well. The core system has been in use for years. Library was originally
-called Roll and was RubyForge project #1004. She's actually been around a while! 
-So, on the whole, the underlying functionality is in good working order. But the
-system is still undergoing some development, in particular, work on simplifying 
-configuration and management, so some things are still subject to change.
+Library started out as a project called "ROLL", which stood for *Ruby Objectified Library Ledger*.
+Create in 2006, it was RubyForge project #1004. She's actually been around a while!
+Over the years the code has gone through several rewrites, but has always remained in service
+as a development tool. So, on the whole, the underlying functionality is in good working order.
+However, the system is still undergoing some refinement --as one can imagine, it is not the 
+easiest type of library to write or maintain. So some things are still subject to change.
 
 
 ## Copyrights
