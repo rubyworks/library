@@ -231,6 +231,30 @@ class Library
 # -----------------
 
     #
+    # Lookup libraries that have a depenedency on the given library name
+    # and version.
+    #
+    # @todo Does not yet handle version constraint.
+    # @todo Sucky name.
+    #
+    # @return [Array<Library>] 
+    #
+    def depends_upon(match_name) #, constraint)
+      list = []
+      $LEDGER.each do |name, libs|
+        case libs
+        when Library
+          list << libs if libs.requirements.any?{ |r| match_name == r['name']  } 
+        else
+          libs.each do |lib|
+            list << lib if lib.requirements.any?{ |r| match_name == r['name']  } 
+          end
+        end
+      end
+      list
+    end
+
+    #
     # Go thru each library and collect bin paths.
     #
     # @todo Should this be defined on Ledger?
@@ -292,13 +316,34 @@ class Library
     end
 
     #
-    # Check is `RUBY_LIBRARY_MODE` environment variable is set to `live`.
+    # Check is `RUBY_LIBRARY_LIVE` environment variable is set on.
     #
     # @return [Booelan] Using live mode?
     #
     def live?
-      ENV['RUBY_LIBRARY_MODE'] == 'live'
+      case ENV['RUBY_LIBRARY_LIVE'].to_s.downcase
+      when 'on', 'true', 'yes', 'y'
+        true
+      else
+        false
+      end
     end
+
+=begin
+    #
+    # Check is `RUBY_LIBRARY_DEVELOPMENT` environment variable is set on.
+    #
+    # @return [Booelan] Using development mode?
+    #
+    def development?
+      case ENV['RUBY_LIBRARY_DEVELOPMENT'].to_s.downcase
+      when 'on', 'true', 'yes', 'y'
+        true
+      else
+        false
+      end
+    end
+=end
 
     #
     # Is there a saved locked ledger?
@@ -330,6 +375,13 @@ class Library
       end
 
       $LEDGER.prime(*lookup_paths, :expound=>true)
+
+      #if development?
+        # find project root
+        # if root
+        #   $LEDGER.isolate_project(root)
+        # end
+      #end
     end
 
   private
